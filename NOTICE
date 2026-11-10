@@ -1,0 +1,22 @@
+Roster Mapper is released under the MIT License (see LICENSE), with the exceptions below.
+
+Health Care Provider Taxonomy Code Set (src/nucc.generated.ts)
+  © Copyright American Medical Association. Published in cooperation with the National
+  Uniform Claim Committee (NUCC) by the AMA. Permission is granted to any individual to
+  copy and use this material as long as the copyright statement is included, the contents
+  are not changed, and the copies are not sold or licensed. Applicable FARS/DFARS
+  restrictions apply. Source: https://www.nucc.org/
+  The code set is included unchanged apart from format. It is not covered by the MIT
+  license. Products that sell or license the taxonomy need NUCC's free license:
+  https://www.nucc.org/index.php/code-sets-mainmenu-41/provider-taxonomy-mainmenu-40/csv-mainmenu-57
+
+NPPES NPI Registry (https://npiregistry.cms.hhs.gov/)
+  US government data, public domain, used per the NPPES Data Dissemination Notice.
+  Issuance of an NPI does not ensure or validate that a provider is licensed or credentialed.
+
+US Census Bureau Geocoder (https://geocoding.geo.census.gov/)
+  This product uses the Census Bureau Data API but is not endorsed or certified by the
+  Census Bureau.
+
+SheetJS Community Edition (xlsx)
+  Apache License 2.0. https://sheetjs.com/

@@ -1,0 +1,178 @@
+# Words the header matcher treats specially. Applies to every field.
+
+#   abbreviations  rewritten before matching ("prov" → "provider")
+#   stopwords      dropped before matching
+#   slots          words that number a field ("Secondary Taxonomy" → taxonomy_2); digits 1–4 are slots too
+#   neutral        modifiers that don't change meaning ("Location City" ≈ "City")
+#   qualifiers     words that change whose data it is ("Billing Zip" ≠ practice.zip)
+#   ignore         columns with no canonical field (SSN, board certification, ...)
+
+abbreviations:
+  prov: provider
+  addr: address
+  dob: date of birth
+  loc: location
+  tin: tax id
+  ind: individual
+  eff: effective
+  lic: license
+  l1: line 1
+  l2: line 2
+  postal: zip
+  num: number
+  exp: expiration
+  st.: state
+  term: termination
+  grp: group
+  biling: billing
+stopwords: [ xxx, xxxx, a, an, the, of, and, or, if, any, to, for, as, in, with, by, is ]
+slots:
+  primary: 1
+  secondary: 2
+  sub: 2
+  tertiary: 3
+neutral: [ location, physical, office, practice, service, site, account, texas, tx ]
+qualifiers:
+  - city
+  - county
+  - billing
+  - remit
+  - remittance
+  - pay
+  - payee
+  - mailing
+  - mail
+  - correspondence
+  - supervising
+  - supervisor
+  - collaborating
+  - group
+  - ii
+  - organization
+  - org
+  - board
+  - medicare
+  - medicaid
+  - tpi
+  - malpractice
+  - hospital
+  - school
+  - training
+  - residency
+  - fellowship
+  - internship
+  - credentialing
+  - recredentialing
+  - emergency
+  - contact
+  - owner
+  - license
+  - dea
+  - termination
+  - term
+  - submission
+  - processed
+  - alternate
+  - outreach
+  - additional
+  - previous
+  - prior
+  - former
+ignore:
+  - accept new patients
+  - accepting new patients
+  - accepts new patients
+  - address affiliation
+  - age restrictions
+  - billing county
+  - billing fax
+  - billing phone
+  - billing telephone
+  - board
+  - bom
+  - bom dt
+  - change explanation
+  - confirmed by provider
+  - confirmed provider
+  - county
+  - coverage
+  - coverage aggregate
+  - coverage per incident
+  - cred
+  - cred committee
+  - credentialing
+  - credentialing date
+  - cultural competency
+  - cultural competency training completed
+  - date processed
+  - degree earned
+  - e mail
+  - ecfmg
+  - education
+  - email
+  - entity
+  - facility affiliation
+  - facility code
+  - fellowship
+  - gender restrictions
+  - grad date
+  - hospital
+  - hospital 1
+  - hospital 2
+  - hospital affiliation
+  - hospital coverage form
+  - hours
+  - internship
+  - issue year
+  - language
+  - languages
+  - last cc date
+  - lictype2
+  - location status
+  - malpractice
+  - med school
+  - medicaid
+  - medicaid number
+  - medical school
+  - medicare
+  - medicare id number
+  - medicare num
+  - medicare number
+  - medicare opt out
+  - medicareoptout
+  - medschoolenddate
+  - msc
+  - msc dt
+  - office hours
+  - on call group
+  - panel status
+  - payor
+  - payor name
+  - plan name
+  - plan type
+  - practice limitations
+  - primary specialty board
+  - primary specialty issue year
+  - primboardcert
+  - privileges
+  - provider status
+  - pvid
+  - re cred
+  - reappointment
+  - recred due date
+  - recredentialing
+  - reports
+  - reports to
+  - residency
+  - school
+  - social security number
+  - ss
+  - ssn
+  - status
+  - submission date
+  - supervising
+  - telehealth
+  - telehealth services offered
+  - term roster submission date
+  - tpimedicaid num
+  - training

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roster Mapper</title>
+<link rel="stylesheet" href="style.css">
+<!-- The host page's look. style.css only lays Roster Mapper out and takes its font, colours, buttons
+     and inputs from the page around it; this block plays that page when the CLI serves Roster Mapper
+     on its own. A portal embedding Roster Mapper drops it and sets --rm-accent (and --rm-bg) itself. -->
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .rm { --rm-accent: #e8590c; }
+  button, input, select { padding: 5px 10px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 6px; background: Canvas; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: #e8590c; border-color: #e8590c; color: #fff; }
+</style>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<main class="rm">
+
+<header class="rm-top">
+  <strong class="rm-title">Roster Mapper</strong>
+  <span class="muted">Map a provider roster to the standard schema</span>
+  <span id="filename" class="rm-badge" hidden></span>
+  <button type="button" id="how" class="linkish">How it works</button>
+</header>
+
+<ol id="steps" class="rm-steps">
+  <li><a href="#" data-step="upload">Upload</a></li>
+  <li><a aria-disabled="true" title="Not built yet">Transform <span class="rm-soon">soon</span></a></li>
+  <li><a href="#" data-step="map">Map</a></li>
+  <li><a href="#" data-step="standardize">Standardize</a></li>
+  <li><a href="#" data-step="validate">Validate</a></li>
+  <li><a href="#" data-step="review">Review</a></li>
+  <li><a href="#" data-step="export">Export</a></li>
+</ol>
+<p id="transform-banner" class="rm-note" hidden></p>
+
+<section class="step" id="step-upload">
+  <div class="rm-grid">
+    <div>
+      <label id="drop">
+        <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+        <svg class="drop-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 16V4m0 0-5 5m5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <b id="drop-title">Drop a roster file</b>
+        <span id="drop-hint" class="muted">or click to browse · xlsx, xls, csv</span>
+      </label>
+      <p id="private-note" class="hint center">Read in this browser. Nothing is stored, SSNs are never read.</p>
+      <div id="sheets" class="sheets" hidden></div>
+
+      <fieldset class="sources">
+        <legend>External sources</legend>
+        <label class="rm-check" aria-disabled="true" title="Not built yet"><input type="checkbox" disabled><span>AI transform <span class="rm-soon">soon</span>
+          <span class="hint">Use decision models to identify the structure of the file, determine whether any structural transformations are needed, and implement these transformations. See How it works for more detail.</span></span></label>
+        <label class="rm-check"><input type="checkbox" id="use-nppes" checked><span>NPPES NPI Registry
+          <span class="hint">Sends each NPI to confirm it exists, is active and matches the record.</span></span></label>
+        <label class="rm-check"><input type="checkbox" id="use-census" checked><span>US Census geocoder <span class="muted">(recommended)</span>
+          <span class="hint">Sends practice and billing addresses to check city, state and ZIP, and uses the standardized version by default.</span></span></label>
+      </fieldset>
+    </div>
+
+    <div id="options">
+      <fieldset>
+        <legend>Roster</legend>
+        <div class="rm-row">
+          <label class="rm-field">Action
+            <select id="action"><option value="">Auto-detect</option><option>ADD</option><option>UPDATE</option><option>TERM</option></select>
+            <span class="hint">Auto-detect from file contents or set value to override.</span></label>
+          <label class="rm-field">Default effective date
+            <input type="date" id="effective-date">
+            <span class="hint">Enter fallback effective date for rows that don't have it.</span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Contract <span class="muted normal">· optional</span></legend>
+        <div class="rm-row">
+          <label class="rm-field">Contract ID
+            <input type="text" data-input="network.contract_id" autocomplete="off" spellcheck="false">
+            <span class="hint">Written into every row of the export.</span></label>
+          <label class="rm-field">Sender email
+            <input type="email" data-input="network.sender_email" autocomplete="off" spellcheck="false">
+            <span class="hint">Who sent the roster; written into every row.</span></label>
+        </div>
+        <div class="rm-field">Custom mapping file
+          <span class="filepick"><label class="rm-button" id="mapping-pick">Load…<input type="file" id="mapping" accept=".csv,.xlsx" hidden></label><button type="button" id="mapping-clear" class="textlink small" hidden>remove</button></span>
+          <span class="hint">Override specific fields with a custom mapping file.</span>
+          <span id="mapping-note" class="small" hidden></span></div>
+      </fieldset>
+    </div>
+  </div>
+
+  <div id="raw-wrap" hidden>
+    <p class="rm-caption"><span id="hdr-caption"></span> <button type="button" id="hdr-reset" class="textlink" hidden>Use detected row</button></p>
+    <div class="scroll short"><table id="raw"></table></div>
+  </div>
+</section>
+
+<section class="step" id="step-map" hidden>
+  <div id="mapped" class="fieldsets"></div>
+  <details class="unmapped">
+    <summary id="unmapped-title">Columns not mapped</summary>
+    <div id="unmapped" class="colgroups"></div>
+  </details>
+</section>
+
+<section class="step" id="step-standardize" hidden>
+  <p class="view-switch"><button data-view="clean" class="on">Cleaned</button><button data-view="raw">As written</button></p>
+  <div id="standardized"></div>
+</section>
+
+<section class="step" id="step-validate" hidden>
+  <p class="validate-bar"><button id="run-checks" class="primary">Run checks</button> <span id="check-note" class="muted"></span> <span id="sources-off"></span> <span id="bulk"></span> <label class="muted small"><input type="checkbox" id="only-problems"> show only problems</label></p>
+  <div id="validated"></div>
+</section>
+
+<section class="step" id="step-review" hidden>
+  <p class="view-switch" id="review-view"><button data-review="table" class="on">Table</button><button data-review="graph">Graph</button></p>
+  <div class="scroll tall" id="chains-wrap"><table id="chains" class="chains"></table></div>
+  <div class="graph" id="graph" hidden>
+    <svg id="links" aria-hidden="true"></svg>
+    <section class="entities provider"><h4>Providers <span id="count-provider"></span></h4><ul id="list-provider"></ul></section>
+    <section class="entities practice"><h4>Practice locations <span id="count-practice"></span></h4><ul id="list-practice"></ul></section>
+    <section class="entities billing"><h4>Billing <span id="count-billing"></span></h4><ul id="list-billing"></ul></section>
+  </div>
+  <h3>Issues</h3>
+  <div class="scroll short tall"><table id="issues"></table></div>
+</section>
+
+<section class="step" id="step-export" hidden>
+  <p id="export-summary"></p>
+  <p><button id="export-csv" class="primary">Download CSV</button> <button id="export-json">Download JSON</button></p>
+  <div class="scroll tall"><table id="export-preview" class="preview"></table></div>
+  <p id="export-more" class="muted"></p>
+</section>
+
+<!-- How it works: one dialog for every step; the current step's section is marked. -->
+<dialog id="how-dialog">
+  <h2>How Roster Mapper works</h2>
+  <section data-how="upload"><h3>1 · Upload</h3><ul>
+    <li>Drop an xlsx, xls or csv. It's read in this browser; SSNs are removed as it's read.</li>
+    <li>The header row is found automatically. Click another row in the preview to change it.</li>
+    <li>The action (ADD, UPDATE or TERM) comes from an action column, then the sheet name, then the file name.</li></ul></section>
+  <section data-how="transform"><h3>2 · AI transform <span class="rm-soon">soon</span></h3><ul>
+    <li>Some rosters don't fit one row per provider and location. AI can detect and make these transformations. Example transformations:
+      <ul>
+        <li>Wide to long: several locations in one row become one row per location.</li>
+        <li>Extracting fields merged into another column, such as effective dates, addresses or names.</li>
+        <li>Inferring fields from the file's metadata or structure, such as license state, primary location or show_in_dir.</li>
+      </ul></li></ul></section>
+  <section data-how="map"><h3>3 · Map</h3><ul>
+    <li><b>Find the header row:</b> scan the first 30 rows and pick the one that looks most like labels, with data below it.</li>
+    <li><b>Normalize headers:</b> lowercase them and remove underscores, so <code>PROV_FIRST_NM</code> → <code>prov first nm</code>, then apply any vocabulary transformations.</li>
+    <li><b>Detect value types:</b> profile each column's values (digit checks and patterns) as NPI, TIN, date, phone, ZIP, state and so on.</li>
+    <li><b>Match to fields:</b> compare each column's name with every field's aliases in <code>schema/fields.yaml</code> and give each field its best-scoring column. See the <a href="https://github.com/costpluswellness/rostermapper/blob/main/docs/canonical_fields.md" target="_blank" rel="noopener">data dictionary</a>.</li>
+    <li>Click another column to change a field, or set one value for every row. Save your choices as a mapping file for the next roster from this sender.</li></ul></section>
+  <section data-how="standardize"><h3>4 · Standardize</h3><ul>
+    <li>Transform column values to standard formats:
+      <ul>
+        <li>Dates → <code>YYYY-MM-DD</code></li>
+        <li>Tax IDs → <code>XX-XXXXXXX</code></li>
+        <li>ZIP codes → 5 digits, restoring leading zeros Excel drops</li>
+        <li>Phones → <code>XXX-XXX-XXXX</code></li>
+        <li>States → two-letter codes</li>
+        <li>Gender → <code>M</code> or <code>F</code></li>
+        <li>Yes/No → <code>1</code>/<code>0</code> for <code>is_pcp</code>, <code>is_primary_loc</code> and <code>show_in_dir</code></li>
+        <li>Provider types → <code>SPEC</code>, <code>PCP</code>, <code>BH</code>, <code>APP</code>… (see the <a href="https://github.com/costpluswellness/rostermapper/blob/main/docs/canonical_fields.md" target="_blank" rel="noopener">data dictionary</a>)</li>
+        <li>Actions → <code>ADD</code>, <code>UPDATE</code> or <code>TERM</code> only</li>
+        <li>Location types → <code>Primary</code> or <code>Alternate</code></li>
+      </ul></li>
+    <li>Values that can be told wrong on their own are flagged: an NPI that fails its check digit, a tax ID prefix the IRS doesn't assign, a taxonomy code not in the NUCC list.</li>
+    <li>Values that can't be cleaned are kept as written and flagged.</li>
+    <li>Hover a name, address or flagged value and click ✎ to fix it by hand.</li></ul></section>
+  <section data-how="validate"><h3>5 · Validate</h3><ul>
+    <li>Compares the roster with outside sources, as turned on under Upload: NPIs are looked up in NPPES and addresses in the Census geocoder.</li>
+    <li>Census results are applied by default: city, state and ZIP, and a suite moved from line 1 to line 2. Open "changes from Census" on a card to see them; "undo" puts yours back.</li>
+    <li>NPPES results are suggestions: accept one with "Use"; "undo" puts yours back.</li></ul></section>
+  <section data-how="review"><h3>6 · Review</h3><ul>
+    <li>Visualize relationships by entity: which unique NPIs, tax IDs, billing entities and network records are being entered.</li>
+    <li>See which providers work at which locations and bill through which entities, and every issue by row.</li></ul></section>
+  <section data-how="export"><h3>7 · Export</h3><ul>
+    <li>Download one record per row, with every field and its issues, as CSV or JSON.</li></ul></section>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+
+<footer class="rm-nav">
+  <button type="button" id="back">← Back</button>
+  <span class="nav-right">
+    <span id="map-links" hidden>
+      <span id="edits-note" class="muted"></span>
+      <button type="button" id="clear-edits" class="textlink" hidden>Undo changes</button>
+      <button type="button" id="download-mapping" class="textlink">Download mapping file</button>
+    </span>
+    <button type="button" disabled title="Not built yet: runs every step with the recommended options">Run all steps with recommended options</button>
+    <button type="button" id="next" class="primary">Next →</button>
+  </span>
+</footer>
+
+</main>
+</body>
+</html>

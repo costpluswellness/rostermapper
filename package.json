@@ -1,0 +1,60 @@
+{
+	"name": "rostermapper",
+	"version": "1.0.0-beta",
+	"description": "Map any healthcare provider roster file to a standard schema.",
+	"keywords": ["healthcare", "provider", "roster", "directory", "npi", "nppes", "nucc", "xlsx", "csv"],
+	"license": "MIT",
+	"author": "Ramzy Alamine",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/costpluswellness/rostermapper.git"
+	},
+	"homepage": "https://github.com/costpluswellness/rostermapper#readme",
+	"bugs": "https://github.com/costpluswellness/rostermapper/issues",
+	"type": "module",
+	"bin": {
+		"rostermapper": "dist/cli.js"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./workbook": {
+			"types": "./dist/workbook.d.ts",
+			"default": "./dist/workbook.js"
+		}
+	},
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"NOTICE"
+	],
+	"scripts": {
+		"build": "rm -rf dist && tsup",
+		"schema": "node scripts/build-schema.ts",
+		"schema:check": "node scripts/build-schema.ts --check",
+		"nucc": "node scripts/build-nucc.ts",
+		"typecheck": "tsc --noEmit",
+		"check": "pnpm schema:check && pnpm typecheck && pnpm build",
+		"prepublishOnly": "pnpm check"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"packageManager": "pnpm@10.3.0",
+	"dependencies": {
+		"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+	},
+	"devDependencies": {
+		"@types/node": "^22.20.5",
+		"tsup": "^9.0.0",
+		"typescript": "^5.9.3",
+		"yaml": "^2.9.1"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild"
+		]
+	}
+}
