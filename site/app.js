@@ -1,7 +1,7 @@
 // Roster Mapper UI, opened by the CLI (node dist/cli.js [roster.xlsx]). One screen per step:
 // 0 Upload → (1 Transform, not built) → 2 Map → 3 Standardize → 4 Validate → 5 Review → 6 Export.
 // Files are read in the browser and Roster Mapper runs here, so every change recalculates live.
-import { applyDropRules, automap, checkIssues, cleanValue, isDropped, lookupTargets, nameKey, nameSearches, outputFields, outputOrder, outputName, detectHeaderRow, fieldLevel, groupEntities, isBlank, isFreeText, isStandardized, RANK, recordChecks, standardRule, parseMapping, readWorkbook, schema, toCsv } from './rostermapper.js';
+import { applyDropRules, automap, checkIssues, cleanValue, isDropped, lookupTargets, nameKey, nameSearches, outputFields, outputOrder, outputName, detectHeaderRow, fieldLevel, groupEntities, isBlank, isFreeText, isStandardized, RANK, recordChecks, standardRule, parseMapping, readWorkbook, schema, toCsv, toIssuesCsv } from './rostermapper.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -235,7 +235,8 @@ function run() {
   applyFixes();
   applyValidation(); // accepted suggestions, and failures from Validate's checks, as issues
   state.byRow = new Map(state.result.records.map((r, i) => [r.row, { clean: r, get raw() { return rawRecords()[i]; } }]));
-  state.entities = groupEntities(state.result.records);
+  state.entities = groupEntities(state.result.records); // every row, so Validate can fix a dropped one
+  state.kept = groupEntities(state.result.records.filter((r) => !isDropped(r))); // Review: only rows that move forward
   state.selected = state.hovered = null;
   go(state.step);
 }
@@ -894,7 +895,9 @@ function renderValidate() {
         if (c.suggestion !== undefined && (c.status === 'suggest' || c.status === 'fail')) {
           const also = Object.entries(c.also ?? {});
           const theirs = also.length ? [c.suggestion, ...also.map(([, v]) => v)].join(' / ') : c.suggestion;
-          return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}"><span class="muted">${LABEL(i.f)}:</span> ${esc(i.value) || '<span class="muted">blank</span>'} → <b>${esc(theirs)}</b> ` +
+          // A failure (the NPI belongs to someone else) says why before offering the fix.
+          const why = c.status === 'fail' ? `${esc(c.detail)}<br>` : '';
+          return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}">${why}<span class="muted">${LABEL(i.f)}:</span> ${esc(i.value) || '<span class="muted">blank</span>'} → <b>${esc(theirs)}</b> ` +
             `<button class="use" data-use="${i.f}" data-rows="${rows(entity)}" data-value="${esc(c.suggestion)}" data-also="${esc(JSON.stringify(c.also ?? {}))}" data-source="${esc(c.source)}">Use</button></li>`;
         }
         return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}"><span class="muted">${LABEL(i.f)}:</span> ${esc(c.detail)}</li>`;
@@ -1063,11 +1066,11 @@ document.querySelectorAll('#review-view button').forEach((b) => (b.onclick = () 
 
 // The table view: one line per unique provider × location × billing combination, with its rows.
 function renderChains() {
-  const { providers, locations, billing } = state.entities;
+  const { providers, locations, billing } = state.kept;
   const indexOf = (list) => { const m = new Map(); list.forEach((e, i) => e.rows.forEach((r) => m.set(r, i))); return m; };
   const [p, l, b] = [indexOf(providers), indexOf(locations), indexOf(billing)];
   const chains = new Map();
-  for (const r of state.result.records) {
+  for (const r of state.result.records.filter((x) => !isDropped(x))) {
     const key = [p.get(r.row), l.get(r.row), b.get(r.row)].join(',');
     if (!chains.has(key)) chains.set(key, { p: p.get(r.row), l: l.get(r.row), b: b.get(r.row), rows: [] });
     chains.get(key).rows.push(r.row);
@@ -1090,7 +1093,7 @@ function renderExport() {
   const records = exported();
   const dropped = state.result.records.length - records.length;
   $('export-summary').textContent = `${plural(records.length, 'record')} from ${state.name} · ${state.sheet}, ${records.filter((r) => r.issues.some((i) => i.kind !== 'default')).length} with issues` +
-    `${dropped ? `; ${plural(dropped, 'row')} dropped (see Review)` : ''}. ` +
+    `${dropped ? `; ${plural(dropped, 'row')} left out (Download issues lists them and why)` : ''}. ` +
     `The CSV has ${outputFields(records).length} fields; the preview shows the ones with values.`;
   // Mapped fields, plus any filled in later (an accepted suggestion such as address line 2). The file fields aren't shown: see the download.
   const fields = outputOrder(FIELD_IDS).filter((f) => mapping[f] || f === 'network.action_type' || records.some((r) => r.values[f]));
@@ -1107,6 +1110,7 @@ function download(text, type, name) {
 }
 // Downloads are named RM_<file>_<sheet>.<ext>: "Q3 Roster.xlsx" / "LOC TERM" → RM_Q3Roster_LOCTERM.csv
 $('export-csv').onclick = () => download(toCsv(exported()), 'text/csv', outputName(state.result.file, 'csv'));
+$('export-issues').onclick = () => download(toIssuesCsv(state.result.records), 'text/csv', outputName(state.result.file, 'csv', '_issues'));
 $('export-json').onclick = () => download(JSON.stringify({ ...state.result, records: exported(), dropped: state.result.records.filter(isDropped) }, null, 2), 'application/json', outputName(state.result.file, 'json'));
 
 // ─── Preview: providers ↔ locations ↔ billing ───────────────
@@ -1136,7 +1140,7 @@ const CARD = {
 
 // Index → connected indexes, per pair of kinds.
 function neighbours() {
-  const { providerLocations, locationBilling } = state.entities;
+  const { providerLocations, locationBilling } = state.kept;
   const map = (pairs, from, to) => {
     const m = new Map();
     for (const pair of pairs) m.set(pair[from], [...(m.get(pair[from]) ?? []), pair[to]]);
@@ -1156,7 +1160,7 @@ function renderPreview() {
     billing: (i) => plural((n.billingToPractice.get(i) ?? []).length, 'location'),
   };
   for (const kind of KINDS) {
-    const entities = state.entities[LISTS[kind]];
+    const entities = state.kept[LISTS[kind]];
     $(`count-${kind}`).textContent = entities.length;
     $(`list-${kind}`).innerHTML = entities.map((e, i) => {
       const [title, ...lines] = CARD[kind](e);
@@ -1210,7 +1214,7 @@ function highlight() {
     li.classList.toggle('selected', state.selected?.kind === li.dataset.kind && state.selected.i === +li.dataset.i);
   });
   const svg = $('links');
-  const { providerLocations, locationBilling } = state.entities;
+  const { providerLocations, locationBilling } = state.kept;
   const on = [];
   svg.querySelectorAll(':scope > path').forEach((path, k) => {
     const [a, b] = k < providerLocations.length ? providerLocations[k] : locationBilling[k - providerLocations.length];
@@ -1228,7 +1232,7 @@ function highlight() {
 function drawLinks() {
   const graph = $('graph');
   const svg = $('links');
-  if (!state.entities || getComputedStyle(svg).display === 'none') return;
+  if (!state.kept || getComputedStyle(svg).display === 'none') return;
   const box = graph.getBoundingClientRect();
   const anchor = (li, side) => {
     const r = li.getBoundingClientRect();
@@ -1242,7 +1246,7 @@ function drawLinks() {
     return `<path d="M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}"/>`;
   };
   const [p, l, b] = KINDS.map((kind) => [...$(`list-${kind}`).children]);
-  const { providerLocations, locationBilling } = state.entities;
+  const { providerLocations, locationBilling } = state.kept;
   svg.setAttribute('width', graph.scrollWidth);
   svg.setAttribute('height', graph.scrollHeight);
   svg.innerHTML = providerLocations.map(([pi, li]) => curve(p[pi], l[li])).join('') +

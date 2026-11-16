@@ -6,7 +6,7 @@ import { parseArgs } from 'node:util';
 import { ACTIONS, type Action } from './action';
 import { automap, type AutomapResult } from './automap';
 import { autoFixes, checkIssues, lookupTargets, nameKey, nameSearches, recordChecks, type Lookups, type Sources } from './checks';
-import { toCsv } from './csv';
+import { toCsv, toIssuesCsv } from './csv';
 import { fieldList } from './fields';
 import { FILE_CATEGORIES, outputName, type FileCategory } from './file';
 import { bodyRows, detectHeaderRow } from './profile';
@@ -31,8 +31,8 @@ them in the UI. With --no-ui, --json or when output is piped, every step runs in
 the terminal instead: map, standardize, validate (NPPES and Census lookups) and,
 with -o, export.
 
-Rows that can't move forward are dropped from the output and listed with their
-reasons: no NPI (blank or N/A), an NPI that fails standardization, an NPI NPPES
+Rows that can't move forward are dropped from the output and written, with the
+reason, to an issues file next to it (*_issues.csv, always written with -o): no NPI (blank or N/A), an NPI that fails standardization, an NPI NPPES
 doesn't have, has deactivated or lists under a different first and last name.
 
 Options
@@ -57,8 +57,8 @@ Options
       --no-census        don't send addresses to the US Census geocoder (both
                          are on unless turned off here or in the UI; checks
                          that need no lookup always run)
-      --keep-dropped     write dropped rows to the output too (with -o; by
-                         default they go to a separate *_dropped file)
+      --keep-dropped     write dropped rows to the output too (with -o); they
+                         are listed in the *_issues.csv file either way
       --why              show the reasons behind each mapping
   -m, --mapping <file>   a CSV of overrides, "column,field" per line: the field
                          for a header, or "ignore" to skip that column
@@ -75,7 +75,7 @@ Examples
   node dist/cli.js roster.xlsx --sheet "Adds" --action term
   node dist/cli.js roster.xlsx --mapping sender-overrides.csv
   node dist/cli.js roster.xlsx --no-ui --why
-  node dist/cli.js roster.xlsx -o clean.csv       # dropped rows: clean_dropped.csv
+  node dist/cli.js roster.xlsx -o clean.csv       # rows left out, and why: clean_issues.csv
   node dist/cli.js roster.xlsx -o out/     # out/RM_roster_Sheet1.csv
 `;
 
@@ -258,12 +258,13 @@ async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
 
 	if (!ui) await validate(results.flatMap((r) => r.records), { nppes: !opts['no-nppes'], census: !opts['no-census'] }, io);
 
+	// The output holds the rows that move forward; the issues file every row left out, and why.
 	const keep = opts['keep-dropped'] ?? false;
 	const write = (path: string, records: RosterRecord[], asJson: boolean) =>
 		writeFileSync(path, asJson ? JSON.stringify(records, null, 2) + '\n' : toCsv(records));
-	const wrote = (path: string, records: RosterRecord[], dropped: RosterRecord[], droppedPath: string) =>
+	const wrote = (path: string, records: RosterRecord[], dropped: RosterRecord[], issuesPath: string) =>
 		err.write(`Wrote ${records.length} records to ${path} (${records.filter(hasProblem).length} with issues)` +
-			(dropped.length ? `; ${dropped.length} dropped ${keep ? 'rows kept in it' : `to ${droppedPath}`}` : '') + '\n');
+			`; ${dropped.length} ${dropped.length === 1 ? 'row' : 'rows'} left out${keep && dropped.length ? ' (kept in the output by --keep-dropped)' : ''}, listed with why in ${issuesPath}\n`);
 	if (opts.output && toDir) {
 		for (const r of results) {
 			if (!r.records.length) {
@@ -273,19 +274,19 @@ async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
 			const dropped = r.records.filter(isDropped);
 			const records = keep ? r.records : r.records.filter((x) => !isDropped(x));
 			const path = join(opts.output, outputName(r.file, 'csv'));
-			const droppedPath = join(opts.output, outputName(r.file, 'csv').replace(/\.csv$/, '_dropped.csv'));
+			const issuesPath = join(opts.output, outputName(r.file, 'csv', '_issues'));
 			write(path, records, false);
-			if (dropped.length && !keep) write(droppedPath, dropped, false);
-			wrote(path, records, dropped, droppedPath);
+			writeFileSync(issuesPath, toIssuesCsv(r.records));
+			wrote(path, records, dropped, issuesPath);
 		}
 	} else if (opts.output) {
 		const all = results.flatMap((r) => r.records);
 		const dropped = all.filter(isDropped);
 		const records = keep ? all : all.filter((x) => !isDropped(x));
-		const droppedPath = opts.output.slice(0, -format!.length) + '_dropped' + format;
+		const issuesPath = opts.output.slice(0, -format!.length) + '_issues.csv';
 		write(opts.output, records, format === '.json');
-		if (dropped.length && !keep) write(droppedPath, dropped, format === '.json');
-		wrote(opts.output, records, dropped, droppedPath);
+		writeFileSync(issuesPath, toIssuesCsv(all));
+		wrote(opts.output, records, dropped, issuesPath);
 	}
 
 	if (mapping && !ui) {

@@ -46,7 +46,7 @@ export function groupEntities(records: readonly RosterRecord[]): Entities {
 
 	for (const record of records) {
 		const p = providers.add(record, keyOf(record, KEYS.provider) || keyOf(record, PROVIDER_FALLBACK));
-		const l = locations.add(record, keyOf(record, KEYS.practice) || keyOf(record, ['practice.location_name', 'practice.dba']));
+		const l = locations.add(record, keyOf(record, KEYS.practice)); // no address, no location: a name alone isn't a place
 		const b = billing.add(record, keyOf(record, KEYS.billing));
 		if (p !== null && l !== null) providerLocations.add(`${p},${l}`);
 		if (l !== null && b !== null) locationBilling.add(`${l},${b}`);
