@@ -57,11 +57,24 @@ Transform column values to specific formats:
 - Names and cities in ALL CAPS or lowercase become Title Case; degrees lose their dots (`M.D.` → `MD`); license, taxonomy and DEA codes become uppercase; emails lowercase
 - PO boxes become `PO Box 123`. A suite left in address line 1 is moved to line 2 in Validate, using the street the geocoder matched
 - Anything that can't be cleaned is kept as written and flagged
+- An NPI that is blank (or `N/A`), not 10 digits or fails the check digit drops the row (see [Dropped rows](#dropped-rows))
 
 ## 4. Validate
 - NPI check digit; tax ID format and IRS prefix; taxonomy code in the [NUCC](https://www.nucc.org/) list (v26.1; `pnpm nucc` refreshes it).
 - Check each NPI against [NPPES](https://npiregistry.cms.hhs.gov/) (must exist and be active; Type 1 for providers, Type 2 for billing) and names, gender, degree, taxonomy and license are compared with the record. 
 - Check practice and billing addresses against the US Census geocoder and city, state and ZIP compared. Use the US Census format by default.
+- NPPES's legal name for a billing NPI is applied by default, entity types shortened (`Professional Limited Liability Company` → `PLLC`); undo puts the roster's back. A name sharing no word with the roster's is only suggested, with a warning.
+- When a provider's NPI is under another last name, NPPES is searched by the roster's name. If it has the provider under another NPI, the row is dropped and that NPI suggested (in the UI, "Use" puts it in and keeps the row).
+- An address the Census geocoder can't find is retried with the street alone (no suite or building name) and with the 2020 address ranges. Still not found is shown on the card but isn't an issue: many newer and commercial addresses aren't in the Census street ranges. USPS would cover them (see TODO).
+- Degrees and taxonomies keep the roster's values by default: NPPES is often slow to update them. NPPES's credential and taxonomy are offered as suggestions to accept one by one ("Use"), left out of "Use all", and a difference isn't an issue.
+- Small differences from NPPES in names, gender and license (a typo, a nickname) are suggestions. Large ones are also issues: one name nothing like NPPES's, or first and last name swapped. When both first and last name are unlike NPPES's, the NPI belongs to someone else and the row is dropped.
+
+### Dropped rows
+A row that can't move forward is left out of the export and listed under Review's issues, dropped rows first. A row is dropped when:
+- the primary NPI is blank or `N/A` (the provider's NPI; the billing NPI in a facility roster)
+- any NPI fails standardization: not 10 digits, or a bad check digit
+- NPPES doesn't have the NPI, has deactivated it, or lists it under another type (an organization's NPI as a provider's)
+- NPPES lists the provider's NPI under a different first and last name, or under another last name while it has the provider under another NPI
 
 ## 5. Review
 A table of every unique provider × practice location × billing entity combination with the rows that describe it (default), or a graph with lines between them. Below it, every issue by row: required fields missing for the row's action, values that couldn't be cleaned, values that failed validation. Required fields per action: see [Canonical fields](docs/canonical_fields.md).
@@ -94,10 +107,10 @@ npm install -g rostermapper
 ```
 rostermapper roster.xlsx            # opens the UI with the file loaded
 rostermapper                        # opens the UI; upload there
-rostermapper roster.xlsx --no-ui    # prints the mapping to the terminal
-rostermapper roster.xlsx -o clean.csv
+rostermapper roster.xlsx --no-ui    # runs every step in the terminal and prints the mapping and dropped rows
+rostermapper roster.xlsx -o clean.csv   # dropped rows go to clean_dropped.csv
 rostermapper fields                 # the data dictionary
-rostermapper --help                 # every option: -s sheet, -a action, -c category, --header-row, -m mapping, -o output, --why, --json
+rostermapper --help                 # every option: -s sheet, -a action, -c category, --header-row, -m mapping, -o output, --no-nppes, --no-census, --keep-dropped, --why, --json
 ```
 
 ## Library
