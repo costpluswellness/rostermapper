@@ -18,7 +18,15 @@ export interface Sheet {
  * SSNs are replaced before the rows are returned (see redact.ts), so nothing downstream sees them.
  */
 export function readWorkbook(data: ArrayBuffer | Uint8Array): Sheet[] {
-	const workbook = read(data, { type: 'array', cellDates: true });
+	let workbook;
+	try {
+		workbook = read(data, { type: 'array', cellDates: true });
+	} catch (e) {
+		if (/password|encrypt/i.test((e as Error).message)) {
+			throw new Error('This file is password-protected. Open it in Excel, remove the password (File → Info → Protect Workbook → Encrypt with Password, clear it), save, and load it again.');
+		}
+		throw e;
+	}
 	return workbook.SheetNames.map((name) => {
 		const { rows, columns, cells } = redactSsn(utils.sheet_to_json<Row>(workbook.Sheets[name]!, { header: 1, raw: true, defval: null, blankrows: true }));
 		return { name, rows, redacted: { columns, cells } };

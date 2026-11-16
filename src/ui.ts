@@ -7,6 +7,7 @@ import { createServer, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lookupAddress, lookupNpi, searchNpiByName } from './lookup';
 import type { Sheet } from './workbook';
 
 /** Where the UI starts. CLI flags set these; the UI can change all of them. */
@@ -58,7 +59,7 @@ export function openUi(session: Session, files: UiFiles = {}): Promise<string> {
 		const full = new URL(req.url ?? '/', 'http://localhost');
 		let url: string;
 		try { url = decodeURIComponent(full.pathname); } catch { return void res.writeHead(400).end('Bad path'); }
-		if (url === '/api/nppes' || url === '/api/census') return void lookup(url, full.searchParams, res);
+		if (url === '/api/nppes' || url === '/api/census' || url === '/api/nppes-name') return void lookup(url, full.searchParams, res);
 		if (url === '/session') return void res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(session));
 		if (url === '/file') {
 			if (!files.sheets) return void res.writeHead(404).end();
@@ -86,39 +87,27 @@ export function openUi(session: Session, files: UiFiles = {}): Promise<string> {
 
 // ─── Lookups for Validate's "Run checks" ──────────────────────
 // Browsers can't call NPPES or the Census geocoder directly (no CORS), so the page asks this server.
-// Only an NPI or an address is sent out; answers are cached for as long as the CLI runs.
-const NPPES = 'https://npiregistry.cms.hhs.gov/api/?version=2.1&number=';
-const CENSUS = 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?benchmark=Public_AR_Current&format=json&address=';
-const cache = new Map<string, Promise<unknown>>();
-
 async function lookup(url: string, params: URLSearchParams, res: ServerResponse): Promise<void> {
 	const send = (status: number, body: unknown): void => void res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
-	let key: string;
-	let fetchOne: () => Promise<unknown>;
+	let answer: Promise<unknown>;
 	if (url === '/api/nppes') {
 		const npi = params.get('npi') ?? '';
 		if (!/^\d{10}$/.test(npi)) return send(400, { error: 'npi must be 10 digits' });
-		key = `nppes:${npi}`;
-		fetchOne = async () => ((await getJson(NPPES + npi)) as { results?: unknown[] }).results?.[0] ?? null;
+		answer = lookupNpi(npi);
+	} else if (url === '/api/nppes-name') {
+		const [first, last, state] = ['first', 'last', 'state'].map((k) => (params.get(k) ?? '').slice(0, 60).trim());
+		if (!first || !last) return send(400, { error: 'first and last are required' });
+		answer = searchNpiByName({ first: first!, last: last!, state: state ?? "" });
 	} else {
 		const address = (params.get('address') ?? '').slice(0, 200);
 		if (!address) return send(400, { error: 'address is required' });
-		key = `census:${address.toLowerCase()}`;
-		fetchOne = async () => ((await getJson(CENSUS + encodeURIComponent(address))) as { result?: { addressMatches?: unknown[] } }).result?.addressMatches?.[0] ?? null;
+		answer = lookupAddress(address);
 	}
-	if (!cache.has(key)) cache.set(key, fetchOne());
 	try {
-		send(200, { result: await cache.get(key) });
+		send(200, { result: await answer });
 	} catch (e) {
-		cache.delete(key); // let a later run retry
 		send(502, { error: (e as Error).message });
 	}
-}
-
-async function getJson(url: string): Promise<unknown> {
-	const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-	if (!res.ok) throw new Error(`${new URL(url).hostname} answered ${res.status}`);
-	return res.json();
 }
 
 function openBrowser(url: string): void {

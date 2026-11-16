@@ -1,7 +1,7 @@
 // Roster Mapper UI, opened by the CLI (node dist/cli.js [roster.xlsx]). One screen per step:
 // 0 Upload → (1 Transform, not built) → 2 Map → 3 Standardize → 4 Validate → 5 Review → 6 Export.
 // Files are read in the browser and Roster Mapper runs here, so every change recalculates live.
-import { addressLine, automap, cleanValue, outputFields, outputOrder, outputName, censusChecks, detectHeaderRow, fieldLevel, groupEntities, isBlank, isFreeText, isStandardized, nppesBillingChecks, nppesProviderChecks, standardRule, parseMapping, readWorkbook, schema, toCsv } from './rostermapper.js';
+import { applyDropRules, automap, checkIssues, cleanValue, isDropped, lookupTargets, nameKey, nameSearches, outputFields, outputOrder, outputName, detectHeaderRow, fieldLevel, groupEntities, isBlank, isFreeText, isStandardized, RANK, recordChecks, standardRule, parseMapping, readWorkbook, schema, toCsv } from './rostermapper.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -38,7 +38,7 @@ const state = {
   expanded: new Set(), // Standardize and Validate: tables showing every row, not just the first 20
   openFamilies: new Set(), // Map: folded groups of numbered columns the user opened
   showHidden: new Set(), // Map: entities whose hidden fields are shown
-  lookups: { nppes: new Map(), census: new Map() }, // Validate: answers by NPI and by address line
+  lookups: { nppes: new Map(), census: new Map(), names: new Map() }, // Validate: answers by NPI, by address line and by provider name
   checks: new Map(), // Validate: row → field → its checks, worst first
   accepted: new Map(), // Validate: row → field → { value, source, auto } for accepted suggestions
   declined: new Set(), // Validate: "row|field" of Census changes the user undid; not applied again
@@ -154,8 +154,19 @@ document.querySelectorAll('#step-standardize .view-switch button').forEach((b) =
   renderStandardize();
 }));
 
-// readWorkbook removes SSNs as it reads, so they never reach the page's state or screen.
-const loadFile = (name, bytes) => loadSheets(name, readWorkbook(bytes));
+// readWorkbook removes SSNs as it reads, so they never reach the page's state or screen. A file it
+// can't read (password-protected, damaged) says so in the drop bar.
+function loadFile(name, bytes) {
+  let sheets;
+  try { sheets = readWorkbook(bytes); } catch (e) {
+    $('drop').classList.remove('loaded');
+    $('drop-title').textContent = `Can't open ${name}`;
+    $('drop-hint').textContent = e.message;
+    $('file').value = '';
+    return;
+  }
+  loadSheets(name, sheets);
+}
 
 function loadSheets(name, sheets, sheet, headerRow) {
   state.name = name;
@@ -762,6 +773,7 @@ function applyFixes() {
       r.values[f] = value;
       if (issue) r.issues.push({ field: f, kind: 'format', message: issue });
     }
+    applyDropRules(r, state.result.file.category); // a fixed NPI no longer drops the row; a mistyped one still does
   }
 }
 
@@ -769,28 +781,11 @@ function applyFixes() {
 // Only outside sources: NPPES and Census lookups, through the CLI's server (checks a value can fail
 // on its own, like the NPI check digit, are Standardize's). A suggestion can be accepted per cell ("Use"); accepted
 // values replace the cleaned ones for that entity's rows and move forward.
-const RANK = { fail: 0, suggest: 1, warn: 2, ok: 3, skip: 4 };
+// Every check for one record's values: field → its checks, worst first (see checks.ts).
+const checksFor = (values) => recordChecks(values, state.lookups, state.sources);
 
-// Every check for one record's values: field → its checks, worst first.
-function checksFor(values) {
-  const all = [];
-  const got = (map, key) => (map.has(key) && !map.get(key)?.error ? map.get(key) : undefined);
-  const { nppes, census } = state.lookups;
-  const on = state.sources;
-  if (on.nppes && nppes.has(values['provider.npi'])) all.push(...nppesProviderChecks(values, got(nppes, values['provider.npi']) ?? null));
-  if (on.nppes && nppes.has(values['billing.npi'])) all.push(...nppesBillingChecks(values, got(nppes, values['billing.npi']) ?? null));
-  for (const prefix of on.census ? ['practice', 'billing'] : []) {
-    const line = addressLine(values, prefix);
-    if (census.has(line) || /^PO Box/i.test(values[`${prefix}.address_1`] ?? '')) all.push(...censusChecks(values, prefix, got(census, line) ?? null));
-  }
-  for (const [key, m] of on.nppes ? nppes : []) if (m?.error && (key === values['provider.npi'] || key === values['billing.npi'])) all.push({ field: key === values['provider.npi'] ? 'provider.npi' : 'billing.npi', status: 'warn', source: 'NPPES', detail: `NPPES didn't answer: ${m.error}` });
-  const byField = new Map();
-  for (const c of all) byField.set(c.field, [...(byField.get(c.field) ?? []), c]);
-  for (const list of byField.values()) list.sort((a, b) => RANK[a.status] - RANK[b.status]);
-  return byField;
-}
-
-// Apply accepted suggestions and replace "invalid" issues with the current checks' failures.
+// Apply accepted suggestions and replace "invalid" and "warning" issues with the current checks'.
+// A check that drops the row (wrong NPI) drops it from the export too.
 // Checks run on the values before acceptance, so the lookups they used stay the same.
 function applyValidation() {
   state.checks = new Map();
@@ -802,8 +797,9 @@ function applyValidation() {
     const checks = checksFor(before);
     for (const f of (state.accepted.get(r.row) ?? new Map()).keys()) checks.delete(f);
     state.checks.set(r.row, checks);
-    r.issues = r.issues.filter((i) => i.kind !== 'invalid' && !(i.kind === 'missing' && r.values[i.field]) && !(i.kind === 'format' && state.accepted.get(r.row)?.has(i.field)));
-    for (const [c] of checks.values()) if (c.status === 'fail') r.issues.push({ field: c.field, kind: 'invalid', message: c.detail });
+    r.issues = r.issues.filter((i) => i.kind !== 'invalid' && i.kind !== 'warning' && !(i.kind === 'missing' && r.values[i.field]) && !(i.kind === 'format' && state.accepted.get(r.row)?.has(i.field)));
+    r.issues.push(...checkIssues(checks));
+    applyDropRules(r, state.result.file.category);
   }
 }
 
@@ -871,7 +867,7 @@ function renderValidate() {
         if (acc || check) items.push({ f, row: r.row, value: values[f], acc, check });
       }
       const status = items.reduce((worst, i) => (i.acc ? worst : !worst || RANK[i.check.status] < RANK[worst] ? i.check.status : worst), null);
-      for (const { f, acc, check: c } of items) if (!acc && c.status === 'suggest') pending.set(c.source, [...(pending.get(c.source) ?? []), { f, rows: entity.rows, value: c.suggestion, also: c.also ?? {} }]);
+      for (const { f, acc, check: c } of items) if (!acc && c.status === 'suggest' && !c.keep) pending.set(c.source, [...(pending.get(c.source) ?? []), { f, rows: entity.rows, value: c.suggestion, also: c.also ?? {} }]);
       return { entity, values, items, status };
     });
     const cards = all.filter((c) => !state.onlyProblems || problem(c.status));
@@ -887,15 +883,15 @@ function renderValidate() {
         ? { status: 'ok', tip: i.acc.auto ? `${i.acc.source}: ${changeText(i)}` : `Accepted from ${i.acc.source}` }
         : { status: i.check.status, tip: `${i.check.source}: ${i.check.detail}` }]));
       for (const [f, a] of state.accepted.get(entity.rows[0]) ?? []) if (a.with) marks.set(f, { status: 'ok', tip: `Accepted from ${a.source}` });
-      // Census changes applied on their own: folded under "N from Census", each with its old value.
+      // Changes applied on their own (Census addresses, NPPES legal names): folded under "N changes from …", each with its old value.
       const auto = items.filter((i) => i.acc?.auto);
       const key = rows(entity);
-      const changes = auto.length ? `<li class="auto"><button class="textlink small" data-changes="${key}" title="${esc(auto.map((i) => `${LABEL(i.f)}: ${changeText(i)}`).join('\n'))}">${state.showChanges.has(key) ? '▾' : '▸'} ${plural(auto.length, 'change')} from Census</button>` +
+      const changes = auto.length ? `<li class="auto"><button class="textlink small" data-changes="${key}" title="${esc(auto.map((i) => `${LABEL(i.f)}: ${changeText(i)}`).join('\n'))}">${state.showChanges.has(key) ? '▾' : '▸'} ${plural(auto.length, 'change')} from ${[...new Set(auto.map((i) => i.acc.source))].join(' and ')}</button>` +
         (state.showChanges.has(key) ? `<ul>${auto.map((i) => `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(changeText(i))} <button class="textlink small" data-undo="${i.f}" data-rows="${key}">undo</button></li>`).join('')}</ul>` : '') + '</li>' : '';
       const fixes = changes + items.filter((i) => !i.acc?.auto && (i.acc || problem(i.check?.status))).map((i) => {
         if (i.acc) return `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(i.value)} <span class="muted">accepted</span> <button class="textlink small" data-undo="${i.f}" data-rows="${rows(entity)}">undo</button></li>`;
         const c = i.check;
-        if (c.status === 'suggest') {
+        if (c.suggestion !== undefined && (c.status === 'suggest' || c.status === 'fail')) {
           const also = Object.entries(c.also ?? {});
           const theirs = also.length ? [c.suggestion, ...also.map(([, v]) => v)].join(' / ') : c.suggestion;
           return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}"><span class="muted">${LABEL(i.f)}:</span> ${esc(i.value) || '<span class="muted">blank</span>'} → <b>${esc(theirs)}</b> ` +
@@ -976,14 +972,14 @@ function changeText({ f, row, acc }) {
   return `${was} → ${[acc.value, ...extra].join(' / ')}`;
 }
 
-// The Census geocoder is trusted by default: its city, state and ZIP, and moving a suite from line 1
-// to line 2, are applied as soon as the lookups answer. Changes the user undid stay undone.
-function applyCensus() {
+// Some suggestions are trusted by default and applied as soon as the lookups answer: the Census
+// geocoder's city, state, ZIP and suite on line 2, and NPPES's legal name. Changes the user undid stay undone.
+function applyAuto() {
   for (const [row, checks] of state.checks) {
     for (const list of checks.values()) {
       for (const c of list) {
-        if (c.source !== 'Census' || c.status !== 'suggest' || state.declined.has(`${row}|${c.field}`)) continue;
-        accept([row], c.field, c.suggestion, c.also ?? {}, 'Census', true);
+        if (!c.auto || c.status !== 'suggest' || state.declined.has(`${row}|${c.field}`)) continue;
+        accept([row], c.field, c.suggestion, c.also ?? {}, c.source, true);
       }
     }
   }
@@ -993,12 +989,7 @@ function applyCensus() {
 // sources turned on under Upload's Checks, or just `kinds` when given.
 async function runChecks(kinds = ['nppes', 'census'].filter((k) => state.sources[k])) {
   if (!kinds.length) return void ($('check-note').textContent = 'Lookups are off; only checks that need no lookup ran.');
-  const npis = new Set();
-  const lines = new Set();
-  for (const v of state.before.values()) { // values before accepted suggestions: what the checks use
-    for (const f of ['provider.npi', 'billing.npi']) if (/^\d{10}$/.test(v[f] ?? '')) npis.add(v[f]);
-    for (const p of ['practice', 'billing']) { const line = addressLine(v, p); if (line) lines.add(line); }
-  }
+  const { npis, lines } = lookupTargets(state.before.values()); // values before accepted suggestions: what the checks use
   const jobs = [
     ...(kinds.includes('nppes') ? [...npis].map((n) => ['nppes', `api/nppes?npi=${n}`, n]) : []),
     ...(kinds.includes('census') ? [...lines].map((l) => ['census', `api/census?address=${encodeURIComponent(l)}`, l]) : []),
@@ -1024,12 +1015,24 @@ async function runChecks(kinds = ['nppes', 'census'].filter((k) => state.sources
       note();
     }
   }));
+  // Then NPPES by name, for providers whose NPI is under another last name: finds the right NPI.
+  const searches = kinds.includes('nppes') ? nameSearches(state.before.values(), state.lookups) : [];
+  await Promise.all(searches.map(async (q) => {
+    try {
+      const res = await fetch(`api/nppes-name?${new URLSearchParams(q)}`);
+      const body = await res.json();
+      state.lookups.names.set(nameKey(q), res.ok ? body.result : { error: body.error ?? res.statusText });
+    } catch (e) {
+      state.lookups.names.set(nameKey(q), { error: e.message });
+    }
+  }));
   state.checking = false;
   $('check-note').textContent = 'Checked ' + [
     kinds.includes('nppes') && `${plural(npis.size, 'NPI')} with NPPES`,
     kinds.includes('census') && `${plural(lines.size, 'address', 'addresses')} with the US Census geocoder`,
   ].filter(Boolean).join(' and ') + '.';
-  if (kinds.includes('census')) { run(); applyCensus(); }
+  run();
+  applyAuto();
   run();
 }
 $('run-checks').onclick = () => runChecks();
@@ -1037,17 +1040,19 @@ $('sources-off').onclick = (e) => { const kind = e.target.dataset?.on; if (kind)
 $('only-problems').onchange = (e) => { state.onlyProblems = e.target.checked; renderValidate(); };
 
 // ─── 5 Review ───────────────────────────────────────────────
-const KIND_LABEL = { missing: 'missing', format: 'invalid', invalid: 'per source', default: 'note' };
+const KIND_LABEL = { missing: 'missing', format: 'invalid', invalid: 'per source', warning: 'check', default: 'note' };
 function renderReview() {
   const graph = state.reviewView === 'graph';
   $('graph').hidden = !graph;
   $('chains-wrap').hidden = graph;
   document.querySelectorAll('#review-view button').forEach((b) => b.classList.toggle('on', b.dataset.review === state.reviewView));
   if (graph) renderPreview(); else renderChains();
-  const flagged = state.result.records.filter((r) => r.issues.length);
+  // Dropped rows first: they won't be exported.
+  const flagged = state.result.records.filter((r) => r.issues.length).sort((a, b) => isDropped(b) - isDropped(a));
   $('issues').innerHTML = '<tr><th>Row</th><th>Provider</th><th>Issues</th></tr>' + (flagged.slice(0, 500).map((r) => {
     const who = [r.values['provider.last_name'], r.values['provider.first_name']].filter(Boolean).join(', ') || (r.values['provider.npi'] ? `NPI ${r.values['provider.npi']}` : '');
-    return `<tr><td class="muted">${r.row}</td><td class="nowrap">${esc(who)}</td><td>${r.issues.map((i) => `<span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.field)}${i.kind === 'missing' ? '' : `: ${esc(i.message)}`}`).join('<br>')}</td></tr>`;
+    const row = isDropped(r) ? `${r.row} <span class="drop" title="Not exported">dropped</span>` : r.row;
+    return `<tr><td class="muted nowrap">${row}</td><td class="nowrap">${esc(who)}</td><td>${r.issues.map((i) => `<span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.field)}${i.kind === 'missing' && !i.drop ? '' : `: ${esc(i.message)}`}`).join('<br>')}</td></tr>`;
   }).join('') || '<tr><td colspan="3" class="muted">No issues.</td></tr>');
 }
 
@@ -1078,9 +1083,14 @@ function renderChains() {
 }
 
 // ─── 6 Export ───────────────────────────────────────────────
+// Rows with a drop issue (no NPI, a wrong NPI) never move forward: left out of the CSV and JSON.
+const exported = () => state.result.records.filter((r) => !isDropped(r));
 function renderExport() {
-  const { records, mapping } = state.result;
-  $('export-summary').textContent = `${plural(records.length, 'record')} from ${state.name} · ${state.sheet}, ${records.filter((r) => r.issues.some((i) => i.kind !== 'default')).length} with issues. ` +
+  const { mapping } = state.result;
+  const records = exported();
+  const dropped = state.result.records.length - records.length;
+  $('export-summary').textContent = `${plural(records.length, 'record')} from ${state.name} · ${state.sheet}, ${records.filter((r) => r.issues.some((i) => i.kind !== 'default')).length} with issues` +
+    `${dropped ? `; ${plural(dropped, 'row')} dropped (see Review)` : ''}. ` +
     `The CSV has ${outputFields(records).length} fields; the preview shows the ones with values.`;
   // Mapped fields, plus any filled in later (an accepted suggestion such as address line 2). The file fields aren't shown: see the download.
   const fields = outputOrder(FIELD_IDS).filter((f) => mapping[f] || f === 'network.action_type' || records.some((r) => r.values[f]));
@@ -1096,8 +1106,8 @@ function download(text, type, name) {
   URL.revokeObjectURL(a.href);
 }
 // Downloads are named RM_<file>_<sheet>.<ext>: "Q3 Roster.xlsx" / "LOC TERM" → RM_Q3Roster_LOCTERM.csv
-$('export-csv').onclick = () => download(toCsv(state.result.records), 'text/csv', outputName(state.result.file, 'csv'));
-$('export-json').onclick = () => download(JSON.stringify(state.result, null, 2), 'application/json', outputName(state.result.file, 'json'));
+$('export-csv').onclick = () => download(toCsv(exported()), 'text/csv', outputName(state.result.file, 'csv'));
+$('export-json').onclick = () => download(JSON.stringify({ ...state.result, records: exported(), dropped: state.result.records.filter(isDropped) }, null, 2), 'application/json', outputName(state.result.file, 'json'));
 
 // ─── Preview: providers ↔ locations ↔ billing ───────────────
 const KINDS = ['provider', 'practice', 'billing'];

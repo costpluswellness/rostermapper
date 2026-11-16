@@ -5,12 +5,16 @@ import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 import { ACTIONS, type Action } from './action';
 import { automap, type AutomapResult } from './automap';
+import { autoFixes, checkIssues, lookupTargets, nameKey, nameSearches, recordChecks, type Lookups, type Sources } from './checks';
 import { toCsv } from './csv';
 import { fieldList } from './fields';
 import { FILE_CATEGORIES, outputName, type FileCategory } from './file';
 import { bodyRows, detectHeaderRow } from './profile';
 import { schema } from './schema.generated';
 import { parseMapping } from './mapping';
+import { lookupAddress, lookupNpi, searchNpiByName } from './lookup';
+import { isDropped, type RosterRecord } from './records';
+import type { CensusMatch, NppesRecord } from './validate';
 import { openUi, type Session, type UiFiles } from './ui';
 import { readWorkbook, type Sheet } from './workbook';
 import { version } from '../package.json';
@@ -23,8 +27,13 @@ Usage
   node dist/cli.js fields [--json]    list the schema's fields
 
 The UI opens by default. The options below set where it starts; you can change
-them in the UI. With --no-ui, --json or when output is piped, results print to
-the terminal instead.
+them in the UI. With --no-ui, --json or when output is piped, every step runs in
+the terminal instead: map, standardize, validate (NPPES and Census lookups) and,
+with -o, export.
+
+Rows that can't move forward are dropped from the output and listed with their
+reasons: no NPI (blank or N/A), an NPI that fails standardization, an NPI NPPES
+doesn't have, has deactivated or lists under a different first and last name.
 
 Options
       --no-ui            print to the terminal instead of opening the UI
@@ -44,10 +53,12 @@ Options
       --contract-id <id>  write this contract ID into every record
       --sender-email <email>
                          write the sender's email into every record
-      --no-nppes         in the UI, don't send NPIs to the NPPES NPI Registry
-      --no-census        in the UI, don't send addresses to the US Census
-                         geocoder (both are on unless turned off here or in
-                         the UI; checks that need no lookup always run)
+      --no-nppes         don't send NPIs to the NPPES NPI Registry
+      --no-census        don't send addresses to the US Census geocoder (both
+                         are on unless turned off here or in the UI; checks
+                         that need no lookup always run)
+      --keep-dropped     write dropped rows to the output too (with -o; by
+                         default they go to a separate *_dropped file)
       --why              show the reasons behind each mapping
   -m, --mapping <file>   a CSV of overrides, "column,field" per line: the field
                          for a header, or "ignore" to skip that column
@@ -64,7 +75,7 @@ Examples
   node dist/cli.js roster.xlsx --sheet "Adds" --action term
   node dist/cli.js roster.xlsx --mapping sender-overrides.csv
   node dist/cli.js roster.xlsx --no-ui --why
-  node dist/cli.js roster.xlsx -o clean.csv
+  node dist/cli.js roster.xlsx -o clean.csv       # dropped rows: clean_dropped.csv
   node dist/cli.js roster.xlsx -o out/     # out/RM_roster_Sheet1.csv
 `;
 
@@ -79,6 +90,14 @@ export interface Io {
 	chooseSheet?: (file: string, sheets: Sheet[]) => Promise<Sheet[] | null>;
 	/** Open the browser UI. Absent when output is piped. */
 	openUi?: (session: Session, files?: UiFiles) => Promise<string>;
+	/** NPPES and Census lookups, for Validate without the UI. Default: the live sources. */
+	lookup?: {
+		npi(npi: string): Promise<NppesRecord | null>;
+		address(line: string): Promise<CensusMatch | null>;
+		byName(query: { first: string; last: string; state: string }): Promise<NppesRecord[]>;
+	};
+	/** Show lookup progress ("Checking 12 of 40…"). Default: when stderr is a terminal. */
+	progress?: boolean;
 }
 
 const defaultIo = (): Io => ({
@@ -108,6 +127,7 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
 				'sender-email': { type: 'string' },
 				'no-nppes': { type: 'boolean' },
 				'no-census': { type: 'boolean' },
+				'keep-dropped': { type: 'boolean' },
 				why: { type: 'boolean' },
 				json: { type: 'boolean' },
 				output: { type: 'string', short: 'o' },
@@ -145,6 +165,7 @@ interface MapOptions {
 	'sender-email'?: string | undefined;
 	'no-nppes'?: boolean | undefined;
 	'no-census'?: boolean | undefined;
+	'keep-dropped'?: boolean | undefined;
 	why?: boolean | undefined;
 	json?: boolean | undefined;
 	output?: string | undefined;
@@ -235,20 +256,36 @@ async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
 		...automap(s.rows, { fileName: basename(file), sheetName: s.name, headerRow, action, category, overrides: mapping?.overrides, constants: inputs(opts), effectiveDate }),
 	}));
 
+	if (!ui) await validate(results.flatMap((r) => r.records), { nppes: !opts['no-nppes'], census: !opts['no-census'] }, io);
+
+	const keep = opts['keep-dropped'] ?? false;
+	const write = (path: string, records: RosterRecord[], asJson: boolean) =>
+		writeFileSync(path, asJson ? JSON.stringify(records, null, 2) + '\n' : toCsv(records));
+	const wrote = (path: string, records: RosterRecord[], dropped: RosterRecord[], droppedPath: string) =>
+		err.write(`Wrote ${records.length} records to ${path} (${records.filter(hasProblem).length} with issues)` +
+			(dropped.length ? `; ${dropped.length} dropped ${keep ? 'rows kept in it' : `to ${droppedPath}`}` : '') + '\n');
 	if (opts.output && toDir) {
 		for (const r of results) {
 			if (!r.records.length) {
 				err.write(`${r.sheet}: no records, nothing written\n`);
 				continue;
 			}
+			const dropped = r.records.filter(isDropped);
+			const records = keep ? r.records : r.records.filter((x) => !isDropped(x));
 			const path = join(opts.output, outputName(r.file, 'csv'));
-			writeFileSync(path, toCsv(r.records));
-			err.write(`Wrote ${r.records.length} records to ${path} (${r.records.filter(hasProblem).length} with issues)\n`);
+			const droppedPath = join(opts.output, outputName(r.file, 'csv').replace(/\.csv$/, '_dropped.csv'));
+			write(path, records, false);
+			if (dropped.length && !keep) write(droppedPath, dropped, false);
+			wrote(path, records, dropped, droppedPath);
 		}
 	} else if (opts.output) {
-		const records = results.flatMap((r) => r.records);
-		writeFileSync(opts.output, format === '.csv' ? toCsv(records) : JSON.stringify(records, null, 2) + '\n');
-		err.write(`Wrote ${records.length} records to ${opts.output} (${records.filter(hasProblem).length} with issues)\n`);
+		const all = results.flatMap((r) => r.records);
+		const dropped = all.filter(isDropped);
+		const records = keep ? all : all.filter((x) => !isDropped(x));
+		const droppedPath = opts.output.slice(0, -format!.length) + '_dropped' + format;
+		write(opts.output, records, format === '.json');
+		if (dropped.length && !keep) write(droppedPath, dropped, format === '.json');
+		wrote(opts.output, records, dropped, droppedPath);
 	}
 
 	if (mapping && !ui) {
@@ -262,6 +299,44 @@ async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
 	} else if (opts.json) out.write(JSON.stringify({ file, sheets: results }, null, 2) + '\n');
 	else for (const result of results) out.write(table(result, opts.why ?? false));
 	return 0;
+}
+
+// Validate without the UI: look up every NPI and address (4 at a time), then search NPPES by name for
+// providers whose NPI has another last name. Apply what the UI applies on its own (Census addresses,
+// NPPES legal names) and add the checks' failures and warnings to each record's issues.
+async function validate(records: RosterRecord[], on: Sources, io: Io): Promise<void> {
+	if (!records.length || (!on.nppes && !on.census)) return;
+	const lookup = io.lookup ?? { npi: lookupNpi, address: lookupAddress, byName: searchNpiByName };
+	const { npis, lines } = lookupTargets(records.map((r) => r.values));
+	const lookups: Lookups = { nppes: new Map(), census: new Map(), names: new Map() };
+	const progress = io.progress ?? !!process.stderr.isTTY;
+	const answer = <T>(p: Promise<T>) => p.catch((e: Error) => ({ error: e.message }));
+	const runAll = async (jobs: (() => Promise<void>)[]) => {
+		let done = 0;
+		const total = jobs.length;
+		await Promise.all(Array.from({ length: 4 }, async () => {
+			for (let job; (job = jobs.shift()); ) {
+				await job();
+				if (progress) io.err.write(`\rChecking ${++done} of ${total}…`);
+			}
+		}));
+		if (progress && done) io.err.write('\r\x1b[K');
+	};
+	await runAll([
+		...(on.nppes ? [...npis] : []).map((n) => async () => void lookups.nppes.set(n, await answer(lookup.npi(n)))),
+		...(on.census ? [...lines] : []).map((l) => async () => void lookups.census.set(l, await answer(lookup.address(l)))),
+	]);
+	if (on.nppes) await runAll(nameSearches(records.map((r) => r.values), lookups).map((q) => async () => void lookups.names!.set(nameKey(q), await answer(lookup.byName(q)))));
+	for (const record of records) {
+		const checks = recordChecks(record.values, lookups, on);
+		const fixes = autoFixes(checks);
+		for (const [field, value] of Object.entries(fixes)) {
+			record.values[field] = value;
+			checks.delete(field);
+		}
+		record.issues = record.issues.filter((i) => !(i.field in fixes && (i.kind === 'missing' || i.kind === 'format')));
+		record.issues.push(...checkIssues(checks));
+	}
 }
 
 async function startUi({ err, openUi }: Io, session: Session, files: UiFiles = {}): Promise<number> {
@@ -288,6 +363,7 @@ function table(result: AutomapResult & { sheet: string }, why: boolean): string 
 		...result.transforms.map((t) => `transform likely · ${t.message}`),
 		...missingLines(result),
 		recordsLine(result),
+		...droppedLines(result),
 		'',
 	];
 	for (const column of result.columns) {
@@ -336,13 +412,24 @@ function recordsLine({ records }: AutomapResult): string {
 	const counts = new Map<string, number>();
 	for (const { issues } of records) {
 		for (const { field, kind } of issues) {
-			const key = `${kind === 'format' ? 'unreadable' : kind === 'default' ? 'defaulted' : kind} ${field}`;
+			const key = `${kind === 'format' ? 'unreadable' : kind === 'default' ? 'defaulted' : kind === 'invalid' ? 'rejected' : kind} ${field}`;
 			counts.set(key, (counts.get(key) ?? 0) + 1);
 		}
 	}
 	const flagged = records.filter(hasProblem).length;
+	const dropped = records.filter(isDropped).length;
 	const top = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([what, n]) => `${n} ${what}`);
-	return `${records.length} records · ${flagged} with issues${top.length ? ` (${top.join(', ')}${counts.size > 3 ? ', …' : ''})` : ''}`;
+	return `${records.length} records · ${dropped} dropped · ${flagged} with issues${top.length ? ` (${top.join(', ')}${counts.size > 3 ? ', …' : ''})` : ''}`;
+}
+
+// One line per dropped row, with why: "  dropped row 12 (Smith, Jane): provider.npi: no NPI; row dropped".
+function droppedLines({ records }: AutomapResult, max = 20): string[] {
+	const dropped = records.filter(isDropped);
+	const line = (r: RosterRecord) => {
+		const who = [r.values['provider.last_name'], r.values['provider.first_name']].filter(Boolean).join(', ') || r.values['billing.legal_name'] || '';
+		return `  dropped row ${r.row}${who ? ` (${who})` : ''}: ${r.issues.filter((i) => i.drop).map((i) => `${i.field}: ${i.message}`).join('; ')}`;
+	};
+	return [...dropped.slice(0, max).map(line), ...(dropped.length > max ? [`  … and ${dropped.length - max} more dropped rows`] : [])];
 }
 
 // "missing for ADD: provider.degree, practice.phone", one line per action.

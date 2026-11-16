@@ -45,17 +45,32 @@ export interface ActionInput {
 // "Long-term care" is a facility type, not a termination.
 const TERM_WORD = /(?<!\blong )\bterm(s|ed|inat\w*)?\b/i;
 
-// Cell values, first match wins. Checked against the start of the value.
+// Cell values: the start of the value first, then each word ("Site/LocationAdd" → "Site Location Add").
 const VALUES: [RegExp, Action][] = [
 	[/^(term|delet|remov|inactiv|end|disenroll|close)/i, 'TERM'],
 	[/^(add|new|enroll|initial|join)/i, 'ADD'],
 	[/^(chang|updat|modif|edit|correct)/i, 'UPDATE'],
 ];
+// Whole words, so "Address change" isn't an ADD.
+const WORDS: [RegExp, Action][] = [
+	[/^(term|terms|termed|terminat\w*|delet\w*|remov\w*|inactivat\w*|end|ended|disenroll\w*|close|closed|historical)$/i, 'TERM'],
+	[/^(add|adds|added|adding|addition|additions|new|enroll|enrolled|enrollment|initial|join\w*)$/i, 'ADD'],
+	[/^(chang\w*|updat\w*|modif\w*|edit\w*|correct\w*)$/i, 'UPDATE'],
+];
 
-/** Read one cell as an action: "Add" → ADD, "Termination" → TERM, "Change" → UPDATE. */
+/** Read one cell as an action: "Add" → ADD, "Termination" → TERM, "Site/LocationUpdate" → UPDATE. */
 export function parseAction(value: Cell): Action | null {
 	const text = cellText(value);
-	return VALUES.find(([re]) => re.test(text))?.[1] ?? null;
+	const words = text.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[^A-Za-z]+/).filter(Boolean);
+	if (words[0] && !/^address/i.test(words[0])) {
+		const first = VALUES.find(([re]) => re.test(text))?.[1];
+		if (first) return first;
+	}
+	for (const word of words) {
+		const hit = WORDS.find(([re]) => re.test(word));
+		if (hit) return hit[1];
+	}
+	return null;
 }
 
 /** Whether a sheet or file name marks a termination: "LOC TERM", "Q3_Terminations.xlsx". */

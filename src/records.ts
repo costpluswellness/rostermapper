@@ -11,9 +11,12 @@ import type { Assignment, BodyRow, Schema } from './types';
 export interface Issue {
 	field: string;
 	/** Which step raised it: a required field is blank (Map), a value can't be cleaned (Standardize), a value fails a check (Validate).
+	 *  `warning` is a source that couldn't confirm the value, or disagrees with it enough to check by hand.
 	 *  `default` is a note, not a problem: the value came from the Upload step's default, not the sender. */
-	kind: 'missing' | 'format' | 'invalid' | 'default';
+	kind: 'missing' | 'format' | 'invalid' | 'warning' | 'default';
 	message: string;
+	/** The row can't move forward: it's left out of the export (see isDropped). */
+	drop?: true;
 }
 
 export interface RosterRecord {
@@ -26,6 +29,27 @@ export interface RosterRecord {
 }
 
 export const EFFECTIVE_DATE = 'network.effective_date';
+
+/** True when an issue keeps the row out of the export: a missing or unreadable NPI, or an NPI NPPES rejects. */
+export const isDropped = (record: { issues: readonly Issue[] }): boolean => record.issues.some((i) => i.drop);
+
+const NPI_FIELDS = ['provider.npi', 'billing.npi'];
+
+/** The NPI every row must have: the provider's in an individual roster, the billing entity's in a facility roster. */
+export const primaryNpi = (category?: string): string => (category === 'facility' ? 'billing.npi' : 'provider.npi');
+
+/**
+ * Mark the issues that drop a row: the primary NPI is blank (or "N/A"), or any NPI fails
+ * standardization (not 10 digits, bad check digit). Idempotent, so it can run again after a value
+ * is fixed by hand. Changes `record.issues` in place.
+ */
+export function applyDropRules(record: { values: Readonly<Record<string, string>>; issues: Issue[] }, category?: string): void {
+	const npi = primaryNpi(category);
+	for (const issue of record.issues) if (issue.kind === 'format' && NPI_FIELDS.includes(issue.field)) issue.drop = true;
+	const blank = !record.values[npi];
+	record.issues = record.issues.filter((i) => !(i.field === npi && i.kind === 'missing'));
+	if (blank) record.issues.unshift({ field: npi, kind: 'missing', message: 'no NPI; row dropped', drop: true });
+}
 export const DEFAULT_NOTE = 'effective date from Upload default';
 
 /**
@@ -72,6 +96,8 @@ export function buildRecords(
 			if (!value && required.includes(action)) issues.push({ field: id, kind: 'missing', message: `missing; required for ${action}` });
 			values[id] = value;
 		}
-		return { row: index + 1, values, issues };
+		const record = { row: index + 1, values, issues };
+		applyDropRules(record, file?.category);
+		return record;
 	});
 }

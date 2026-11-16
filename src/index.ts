@@ -3,9 +3,10 @@ export { cleanDegree, cleanValue, isFreeText, isStandardized, standardRule, toTi
 export { groupEntities, type Entities, type Entity, type EntityKind } from './entities';
 export { outputFields, outputOrder, toCsv } from './csv';
 export { detectCategory, FILE_ACTIONS, FILE_CATEGORIES, FILE_FIELDS, fileAction, fileValues, namesFacility, outputName, type CategoryInput, type CategorySource, type DetectedCategory, type FileAction, type FileCategory, type FileInfo } from './file';
-export { buildRecords, type Issue, type RosterRecord } from './records';
+export { applyDropRules, buildRecords, isDropped, primaryNpi, type Issue, type RosterRecord } from './records';
+export { autoFixes, checkIssues, lookupTargets, nameKey, nameSearches, RANK, recordChecks, type LookupError, type Lookups, type NameQuery, type Sources } from './checks';
 export { parseMapping, type ParsedMapping } from './mapping';
-export { addressLine, censusChecks, nppesBillingChecks, nppesProviderChecks, type CensusMatch, type Check, type CheckStatus, type NppesRecord } from './validate';
+export { addressLine, censusChecks, degreesDiffer, nameDifference, orgName, streetOnly, wantsNameSearch, nppesBillingChecks, nppesProviderChecks, type CensusMatch, type Check, type CheckStatus, type NppesRecord } from './validate';
 export { NUCC, NUCC_VERSION } from './nucc.generated';
 export { isSsnHeader, isSsnValue, redactSsn, REDACTED, ssnHeaderColumns, type Redaction } from './redact';
 export { fieldLevel, missingFields, preferredFields, requiredFields, type FieldLevel, type MissingField } from './required';
