@@ -1,6 +1,6 @@
 import { fieldList } from './fields';
 import { FILE_FIELDS } from './file';
-import type { RosterRecord } from './records';
+import { isDropped, type RosterRecord } from './records';
 import { schema } from './schema.generated';
 
 /**
@@ -13,6 +13,28 @@ export function toCsv(records: readonly RosterRecord[], fields?: readonly string
 	const columns = fields ?? outputFields(records);
 	const lines = [[...columns, 'issues']];
 	for (const r of records) lines.push([...columns.map((c) => r.values[c] ?? ''), r.issues.map((i) => `${i.field}: ${i.message}`).join('; ')]);
+	return lines.map((line) => line.map(quote).join(',')).join('\r\n') + '\r\n';
+}
+
+/**
+ * The issues file: every row left out of the export (see isDropped) and why, as CSV. Columns:
+ * the `file.*` fields, `row` (in the sheet), `reason` (what dropped it), `other_issues`, then the
+ * row's values as cleaned, so it can be fixed and sent again. Header only when nothing was dropped.
+ */
+export function toIssuesCsv(records: readonly RosterRecord[]): string {
+	const dropped = records.filter(isDropped);
+	const all = outputFields(dropped.length ? dropped : records);
+	const file = all.filter(isFileField);
+	const fields = all.filter((f) => !isFileField(f));
+	const text = (issues: RosterRecord['issues']) => issues.map((i) => `${i.field}: ${i.message.replace(/; row dropped$/, '')}`).join('; ');
+	const lines = [[...file, 'row', 'reason', 'other_issues', ...fields]];
+	for (const r of dropped) {
+		lines.push([
+			...file.map((f) => r.values[f] ?? ''), String(r.row),
+			text(r.issues.filter((i) => i.drop)), text(r.issues.filter((i) => !i.drop && i.kind !== 'default')),
+			...fields.map((f) => r.values[f] ?? ''),
+		]);
+	}
 	return lines.map((line) => line.map(quote).join(',')).join('\r\n') + '\r\n';
 }
 

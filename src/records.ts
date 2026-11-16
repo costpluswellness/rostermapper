@@ -30,7 +30,7 @@ export interface RosterRecord {
 
 export const EFFECTIVE_DATE = 'network.effective_date';
 
-/** True when an issue keeps the row out of the export: a missing or unreadable NPI, or an NPI NPPES rejects. */
+/** True when an issue keeps the row out of the export: a missing or unreadable NPI, an NPI NPPES rejects, or an ADD with no practice address or TIN. */
 export const isDropped = (record: { issues: readonly Issue[] }): boolean => record.issues.some((i) => i.drop);
 
 const NPI_FIELDS = ['provider.npi', 'billing.npi'];
@@ -38,17 +38,24 @@ const NPI_FIELDS = ['provider.npi', 'billing.npi'];
 /** The NPI every row must have: the provider's in an individual roster, the billing entity's in a facility roster. */
 export const primaryNpi = (category?: string): string => (category === 'facility' ? 'billing.npi' : 'provider.npi');
 
+// What an ADD row must have to be loaded: a location to list the provider at, and a TIN to pay.
+// UPDATE and TERM rows often leave them out, so only ADD rows are dropped without them.
+const ADD_NEEDS: [string, string][] = [
+	['practice.address_1', 'no practice address'],
+	['billing.tax_id', 'no billing TIN'],
+];
+
 /**
- * Mark the issues that drop a row: the primary NPI is blank (or "N/A"), or any NPI fails
- * standardization (not 10 digits, bad check digit). Idempotent, so it can run again after a value
- * is fixed by hand. Changes `record.issues` in place.
+ * Mark the issues that drop a row: the primary NPI is blank (or "N/A"), any NPI fails
+ * standardization (not 10 digits, bad check digit), or an ADD has no practice address or no TIN.
+ * Idempotent, so it can run again after a value is fixed by hand. Changes `record.issues` in place.
  */
 export function applyDropRules(record: { values: Readonly<Record<string, string>>; issues: Issue[] }, category?: string): void {
-	const npi = primaryNpi(category);
 	for (const issue of record.issues) if (issue.kind === 'format' && NPI_FIELDS.includes(issue.field)) issue.drop = true;
-	const blank = !record.values[npi];
-	record.issues = record.issues.filter((i) => !(i.field === npi && i.kind === 'missing'));
-	if (blank) record.issues.unshift({ field: npi, kind: 'missing', message: 'no NPI; row dropped', drop: true });
+	const needs: [string, string][] = [[primaryNpi(category), 'no NPI'], ...(record.values['network.action_type'] === 'ADD' ? ADD_NEEDS : [])];
+	const blank = needs.filter(([field]) => !record.values[field]);
+	record.issues = record.issues.filter((i) => !(i.kind === 'missing' && needs.some(([field]) => field === i.field)));
+	record.issues.unshift(...blank.map(([field, what]) => ({ field, kind: 'missing' as const, message: `${what}; row dropped`, drop: true as const })));
 }
 export const DEFAULT_NOTE = 'effective date from Upload default';
 

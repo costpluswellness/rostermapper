@@ -92,10 +92,10 @@ export function detectCategory({ category, fileName, sheetName, mapping = {} }: 
  * The output file's name: `RM_<file>_<sheet>.<ext>`, the roster's name without its extension and the
  * sheet name with their spaces dropped. "Q3 Roster.xlsx" / "LOC TERM" → `RM_Q3Roster_LOCTERM.csv`.
  */
-export function outputName(file: FileInfo, ext: string): string {
+export function outputName(file: FileInfo, ext: string, suffix = ''): string {
 	const source = noSpaces(file.name.replace(/\.[^.]+$/, '')) || 'roster';
 	const sheet = noSpaces(file.sheet) || 'sheet';
-	return `RM_${source}_${sheet}.${ext.replace(/^\./, '')}`;
+	return `RM_${source}_${sheet}${suffix}.${ext.replace(/^\./, '')}`;
 }
 
 const noSpaces = (s: string) => s.replace(/\s+/g, '');

@@ -70,8 +70,11 @@ Transform column values to specific formats:
 - Small differences from NPPES in names, gender and license (a typo, a nickname) are suggestions. Large ones are also issues: one name nothing like NPPES's, or first and last name swapped. When both first and last name are unlike NPPES's, the NPI belongs to someone else and the row is dropped.
 
 ### Dropped rows
-A row that can't move forward is left out of the export and listed under Review's issues, dropped rows first. A row is dropped when:
+A row that can't move forward is left out of Review's table and graph and of the export, and listed under Review's issues, dropped rows first. Validate still shows it, so a suggested fix (the right NPI) can bring it back. A row is dropped when:
 - the primary NPI is blank or `N/A` (the provider's NPI; the billing NPI in a facility roster)
+- it's an ADD with no practice address (a location name alone isn't a place) or no billing TIN
+
+Every row left out goes to an issues file, `RM_<file>_<sheet>_issues.csv` ("Download issues" on Export; written next to the output by `-o`): the row number, `reason` (what dropped it), `other_issues`, and the row's values, so it can be fixed and sent again. Output plus issues file always add up to every row.
 - any NPI fails standardization: not 10 digits, or a bad check digit
 - NPPES doesn't have the NPI, has deactivated it, or lists it under another type (an organization's NPI as a provider's)
 - NPPES lists the provider's NPI under a different first and last name, or under another last name while it has the provider under another NPI
@@ -108,7 +111,7 @@ npm install -g rostermapper
 rostermapper roster.xlsx            # opens the UI with the file loaded
 rostermapper                        # opens the UI; upload there
 rostermapper roster.xlsx --no-ui    # runs every step in the terminal and prints the mapping and dropped rows
-rostermapper roster.xlsx -o clean.csv   # dropped rows go to clean_dropped.csv
+rostermapper roster.xlsx -o clean.csv   # rows left out, and why, go to clean_issues.csv
 rostermapper fields                 # the data dictionary
 rostermapper --help                 # every option: -s sheet, -a action, -c category, --header-row, -m mapping, -o output, --no-nppes, --no-census, --keep-dropped, --why, --json
 ```
