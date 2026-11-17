@@ -10,7 +10,7 @@
 // Files are read in this browser; only NPIs and addresses go out, to NPPES and the Census geocoder.
 import { automap, detectHeaderRow, groupEntities, isBlank, isDropped, parseMapping, readWorkbook, runSheets, counts } from './rostermapper.js';
 import { $, LOOKUP, STEPS, esc, oneLine, plural } from './lib.js';
-import { MODE_KEY, SOURCES_KEY, state } from './state.js';
+import { MODE_KEY, SOURCES_KEY, allowedOption, state } from './state.js';
 import { renderFiles, renderResults } from './results.js';
 import { renderUpload } from './steps/upload.js';
 import { renderMap } from './steps/map.js';
@@ -153,6 +153,8 @@ async function boot() {
   $('effective-date').value = state.effectiveDate;
   state.inputs = { ...session.inputs };
   document.querySelectorAll('[data-input]').forEach((el) => (el.value = state.inputs[el.dataset.input] ?? ''));
+  // --allow: added to the values allowed in this browser, for this session.
+  for (const [f, list] of Object.entries(session.allowed ?? {})) for (const v of list) (state.allowed.get(f) ?? state.allowed.set(f, new Set()).get(f)).add(v);
   // --no-nppes / --no-census win for this session; the boxes still change them (and save).
   for (const kind of ['nppes', 'census']) if (session[kind] === false) { state.sources[kind] = false; $(`use-${kind}`).checked = false; }
   if (session.mappingName) loadMapping(session.mappingName, await (await fetch('mapping')).arrayBuffer());
@@ -240,7 +242,7 @@ export function run() {
   if (!state.rows.length) return go(state.step);
   const options = {
     headerRow: state.headerRow, fileName: state.name, sheetName: state.sheet,
-    overrides: overrides(), unmapped: [...state.cleared], constants: { ...state.constants, ...state.inputs }, ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
+    overrides: overrides(), unmapped: [...state.cleared], constants: { ...state.constants, ...state.inputs }, allowed: allowedOption(), ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
   };
   state.result = automap(state.rows, options); // always cleaned: these values move forward
   // The mapping before any change made on the Map step: its scores order each row's pills, so
@@ -379,7 +381,7 @@ export async function runFiles() {
     render();
     try {
       const results = (await runSheets(f.name, await f.read(), {
-        overrides: state.mapping?.overrides ?? {}, constants: { ...state.inputs },
+        overrides: state.mapping?.overrides ?? {}, constants: { ...state.inputs }, allowed: allowedOption(),
         ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
         sources: state.sources, lookup: LOOKUP, lookups: state.lookups,
         progress: (done, total) => state.runToken === token && status(`${f.name}: checking ${done} of ${total}…`),

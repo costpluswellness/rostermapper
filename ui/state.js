@@ -42,6 +42,8 @@ export const state = {
 function loadAllowed() {
   try { return new Map(Object.entries(JSON.parse(localStorage.getItem(ALLOWED_KEY) ?? '{}')).map(([f, list]) => [f, new Set(list)])); } catch { return new Map(); }
 }
+/** The allowed values as the pipeline takes them: field id → values. */
+export const allowedOption = () => Object.fromEntries([...state.allowed].filter(([, s]) => s.size).map(([f, s]) => [f, [...s]]));
 export function saveAllowed() {
   try { localStorage.setItem(ALLOWED_KEY, JSON.stringify(Object.fromEntries([...state.allowed].filter(([, s]) => s.size).map(([f, s]) => [f, [...s]])))); } catch { /* not remembered */ }
 }

@@ -27,7 +27,7 @@ rostermapper --help                      # every option
 
 What the terminal shows: each sheet's action, category and columns mapped, and how many rows moved forward, were left out and have issues. The details are in the workbook (see [Export](steps.md#6-export)). `--why` prints the mapping and the reasons behind it; `--json` prints the whole result.
 
-Options: `-s` sheet, `-a` action (`add`, `update`, `term`), `-c` category (`individual`, `facility`), `--header-row`, `--effective-date`, `--contract-id`, `--sender-email`, `-m` mapping file, `-o` output, `--no-nppes`, `--no-census`, `--no-cache`, `--keep-dropped`, `--steps`, `--why`, `--json`, `--ui`. `rostermapper --help` explains each.
+Options: `-s` sheet, `-a` action (`add`, `update`, `term`), `-c` category (`individual`, `facility`), `--header-row`, `--effective-date`, `--contract-id`, `--sender-email`, `--allow` (keep a sender's own codes as written, like `--allow provider_type=AHP,PHYS`), `-m` mapping file, `-o` output, `--no-nppes`, `--no-census`, `--no-cache`, `--keep-dropped`, `--steps`, `--why`, `--json`, `--ui`. `rostermapper --help` explains each.
 
 The exit code is 1 when the arguments are wrong, a file can't be read, or (in a batch) any file failed.
 

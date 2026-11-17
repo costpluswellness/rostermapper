@@ -60,8 +60,6 @@ export function renderStandardize() {
 // They're cleaned and checked like any other value, so a mistyped NPI stays flagged.
 export function applyFixes() {
   for (const r of state.result.records) {
-    // Values allowed as written (a sender's own provider types): no longer flagged.
-    r.issues = r.issues.filter((i) => !(i.kind === 'format' && state.allowed.get(i.field)?.has(r.values[i.field])));
     const fixes = state.fixes.get(r.row);
     if (!fixes?.size) continue;
     r.issues = r.issues.filter((i) => !(fixes.has(i.field) && (i.kind === 'format' || i.kind === 'missing')));
@@ -69,7 +67,8 @@ export function applyFixes() {
       const spec = specOf(f);
       const { value, issue } = cleanValue(f, spec.type, typed, spec.values);
       r.values[f] = value;
-      if (issue) r.issues.push({ field: f, kind: 'format', message: issue });
+      const allowed = [...(state.allowed.get(f) ?? [])].some((v) => v.toLowerCase() === value.trim().toLowerCase());
+      if (issue && !(allowed && spec.type === 'enum')) r.issues.push({ field: f, kind: 'format', message: issue });
     }
     applyDropRules(r, state.result.file.category); // a fixed NPI no longer drops the row; a mistyped one still does
   }

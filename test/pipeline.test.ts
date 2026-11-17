@@ -5,7 +5,7 @@ import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { isDropped, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
+import { automap, isDropped, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
 import { readWorkbook } from '../src/workbook';
 import { mapFiles } from '../src/node';
 import { main, type Io } from '../src/cli/cli';
@@ -78,6 +78,24 @@ test('report tables: the workbook tabs', async () => {
 	assert.deepEqual(Object.keys(tables), ['Summary', 'Mapping', 'Data', 'Issues', 'Left out']);
 	assert.equal(tables.Data.length, 1 + 4); // header + rows moved forward
 	assert.equal(tables['Left out'].length, 1 + 3);
+});
+
+test('standardize: allowed values are kept as written, for fields with a fixed list only', () => {
+	const rows = [['Provider Type', 'Individual NPI'], ['AHP', '123'], ['phys', '123'], ['Wizard', '123']];
+	const issues = (allowed?: Record<string, string[]>) => automap(rows, { allowed }).records.map((r) => r.issues.filter((i) => i.kind === 'format').map((i) => i.field).sort());
+	assert.deepEqual(issues(), [['network.provider_type', 'provider.npi'], ['network.provider_type', 'provider.npi'], ['network.provider_type', 'provider.npi']]);
+	// Case-insensitive; a value not listed is still flagged; an NPI can't be allowed.
+	const allowed = { 'network.provider_type': ['AHP', 'PHYS'], 'provider.npi': ['123'] };
+	assert.deepEqual(issues(allowed), [['provider.npi'], ['provider.npi'], ['network.provider_type', 'provider.npi']]);
+	assert.equal(automap(rows, { allowed }).records[0]!.values['network.provider_type'], 'AHP');
+});
+
+test('CLI: --allow takes a field with a fixed list', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'rm-'));
+	assert.equal(await main([FIXTURE, '--allow', 'provider_type=AHP,PHYS', '--no-nppes', '--no-census', '-o', dir + '/'], quiet()), 0);
+	const io = quiet();
+	assert.equal(await main([FIXTURE, '--allow', 'npi=123', '-o', dir + '/'], io), 1);
+	assert.match(io.text(), /--allow must be field=value,value for a field with a fixed list: .*provider_type/);
 });
 
 test('CLI: writes a workbook per sheet to the output folder', async () => {
