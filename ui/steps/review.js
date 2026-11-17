@@ -12,7 +12,8 @@ export const KIND_LABEL = { missing: 'missing', format: 'invalid', invalid: 'per
 const NONE = { provider: 'No provider', practice: 'No practice location', billing: 'No billing' };
 
 export function renderReview() {
-  renderHead();
+  const issues = issueGroups();
+  renderHead(issues);
   renderSheetTabs();
   renderChecksBar();
   const graph = state.reviewView === 'graph';
@@ -20,7 +21,7 @@ export function renderReview() {
   $('chains-wrap').hidden = graph;
   document.querySelectorAll('#review-view button').forEach((b) => b.classList.toggle('on', b.dataset.review === state.reviewView));
   if (graph) renderPreview(); else renderChains();
-  renderIssues();
+  renderIssues(issues);
   if (state.editing) { const input = $('step-review').querySelector('[data-editing]'); input?.focus(); input?.select(); }
 }
 
@@ -28,16 +29,18 @@ export function renderReview() {
 const sheetResult = (name) => (name === state.sheet ? state.result : sheetMemo.get(`${state.name}|${name}`)?.result ?? state.files[state.current]?.results?.find((r) => r.sheet === name));
 
 // The file's name and totals across its sheets not ignored, then the open sheet's figures.
-function renderHead() {
+function renderHead(issues) {
   $('file-title').textContent = state.name;
   const kept = state.sheets.filter(({ name }) => !isIgnored(state.name, name));
   const all = counts(kept.flatMap(({ name }) => sheetResult(name)?.records ?? []));
   $('file-totals').textContent = [state.sheets.length > 1 && `${plural(kept.length, 'sheet')}${kept.length < state.sheets.length ? ` of ${state.sheets.length}` : ''}`,
-    plural(all.rows, 'row'), `${all.movedForward} moved forward`, `${all.leftOut} left out`, `${all.withIssues} with issues`].filter(Boolean).join(' · ');
+    plural(all.rows, 'row'), `${all.movedForward} moved forward`, `${all.leftOut} left out`, `${plural(all.withIssues, 'row')} with issues`].filter(Boolean).join(' · ');
   const c = counts(state.result.records);
-  const stat = (label, n, cls = '') => `<div${cls ? ` class="${cls}"` : ''}><dt>${label}</dt><dd>${n}</dd></div>`;
+  const stat = (label, n, cls = '', tip = '') => `<div${cls ? ` class="${cls}"` : ''}${tip ? ` title="${esc(tip)}"` : ''}><dt>${label}</dt><dd>${n}</dd></div>`;
+  // Issues as listed below (one per entity, so fixing one brings it down), not rows with issues.
+  const n = problems(issues);
   $('sheet-stats').innerHTML = stat('Rows', c.rows) + stat('Moved forward', c.movedForward) + stat('Left out', c.leftOut, c.leftOut ? 'bad' : '') +
-    stat('With issues', c.withIssues, c.withIssues ? 'warn' : '') + stat('Providers', state.kept.providers.length, 'provider') +
+    stat('Issues', n, n ? 'warn' : '', `${plural(c.withIssues, 'row')} with issues`) + stat('Providers', state.kept.providers.length, 'provider') +
     stat('Locations', state.kept.locations.length, 'practice') + stat('Billing', state.kept.billing.length, 'billing');
 }
 
@@ -125,7 +128,8 @@ function entityName(kind, e) {
   if (kind === 'billing') return v('billing.legal_name') || (v('billing.tax_id') && `TIN ${v('billing.tax_id')}`);
   return '';
 }
-function renderIssues() {
+// The sheet's issues, grouped: one per entity, field and message, with its rows. Issues that drop rows first.
+function issueGroups() {
   // Row → entity index, per kind (every row, dropped ones too).
   const index = {};
   for (const [kind, [list]] of Object.entries(KIND_OF)) {
@@ -143,7 +147,13 @@ function renderIssues() {
     }
   }
   const order = ['provider', 'practice', 'billing'];
-  const list = [...groups.values()].sort((a, b) => !!b.issue.drop - !!a.issue.drop || (order.indexOf(a.kind) + 4) % 4 - (order.indexOf(b.kind) + 4) % 4 || a.rows[0] - b.rows[0]);
+  return [...groups.values()].sort((a, b) => !!b.issue.drop - !!a.issue.drop || (order.indexOf(a.kind) + 4) % 4 - (order.indexOf(b.kind) + 4) % 4 || a.rows[0] - b.rows[0]);
+}
+// Notes (a default effective date filled in) are listed, but aren't problems to count.
+const problems = (list) => list.filter((g) => g.issue.kind !== 'default').length;
+
+function renderIssues(list) {
+  $('issue-count').textContent = problems(list) || '';
   const fix = ({ issue: i, first, rows }) => {
     if (i.kind === 'default') return '';
     // "edit": type the right value for the issue's rows, in place.
