@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A blank billing legal name is filled from NPPES when the billing NPI is an active organization NPI, applied like NPPES legal names (undo it in the UI; shown in green as filled from NPPES)
 - UI: New run is the drop, with the action, a mapping file and the lookups under it; contract ID and sender email are asked for at Download (Review's dialog, Results' Download all); dark by default, with a switch to light
 - A blank taxonomy is filled with the provider's primary taxonomy from NPPES, applied like NPPES legal names and Census addresses (undo it in the UI)
 - `--allow field=values` (and the `allowed` option of `automap` and `runSheets`): keep a sender's own codes as written instead of flagging them, for fields with a fixed list, like `--allow provider_type=AHP,PHYS`
