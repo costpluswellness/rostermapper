@@ -1,5 +1,6 @@
 // Command-line interface. src/bin.ts runs it.
-import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { basename, extname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
@@ -12,31 +13,38 @@ import { FILE_CATEGORIES, outputName, type FileCategory } from './file';
 import { bodyRows, detectHeaderRow } from './profile';
 import { schema } from './schema.generated';
 import { parseMapping } from './mapping';
-import { lookupAddress, lookupNpi, searchNpiByName } from './lookup';
+import { cacheFile, diskCacheOn, lookupAddress, lookupNpi, lookupStats, searchNpiByName, useDiskCache } from './lookup';
 import { isDropped, type RosterRecord } from './records';
 import type { CensusMatch, NppesRecord } from './validate';
 import { openUi, type Session, type UiFiles } from './ui';
+import { toBatchSummary, toReport, type BatchEntry } from './report';
 import { readWorkbook, type Sheet } from './workbook';
 import { version } from '../package.json';
+
+const OUTPUT_DIR = 'output';
 
 const HELP = `Map a provider roster file to the Roster Mapper schema.
 
 Usage
+  node dist/cli.js <file> [options]   map the file and save the result to output/
+  node dist/cli.js <file|folder>...   map several files (or every one in a folder)
+                                      into output/<date-time>/, with a summary.xlsx
+  node dist/cli.js <file> --ui        open the UI with this file loaded
   node dist/cli.js                    open the UI and upload a file there
-  node dist/cli.js <file> [options]   open the UI with this file loaded
   node dist/cli.js fields [--json]    list the schema's fields
 
-The UI opens by default. The options below set where it starts; you can change
-them in the UI. With --no-ui, --json or when output is piped, every step runs in
-the terminal instead: map, standardize, validate (NPPES and Census lookups) and,
-with -o, export.
+Every step runs in the terminal: map, standardize, validate (NPPES and Census
+lookups) and export, one workbook per sheet in ./output/ unless -o says where.
+With --ui, the options below set where the UI starts; you can change them there.
 
 Rows that can't move forward are dropped from the output and written, with the
-reason, to an issues file next to it (*_issues.csv, always written with -o): no NPI (blank or N/A), an NPI that fails standardization, an NPI NPPES
-doesn't have, has deactivated or lists under a different first and last name.
+reason, to an issues file next to it (*_issues.csv, always written with -o; in
+an .xlsx, the Left out tab): no NPI (blank or N/A), an NPI that fails
+standardization, an NPI NPPES doesn't have, has deactivated or lists under a
+different first and last name, or an ADD with no TIN.
 
 Options
-      --no-ui            print to the terminal instead of opening the UI
+      --ui               open the UI in the browser instead
   -s, --sheet <name>     only this sheet (default: the first in the UI; in the
                          terminal, ask, or every sheet when not interactive)
   -a, --action <type>    the file's action: add, update or term (default: detected
@@ -57,26 +65,36 @@ Options
       --no-census        don't send addresses to the US Census geocoder (both
                          are on unless turned off here or in the UI; checks
                          that need no lookup always run)
+      --no-cache         look everything up again: don't use or save the answers
+                         kept between runs (in ~/.cache/rostermapper; delete
+                         lookups.json there to clear it)
       --keep-dropped     write dropped rows to the output too (with -o); they
                          are listed in the *_issues.csv file either way
-      --why              show the reasons behind each mapping
+      --why              print the mapping and the reasons behind it
   -m, --mapping <file>   a CSV of overrides, "column,field" per line: the field
                          for a header, or "ignore" to skip that column
-  -o, --output <path>    write the roster: one record per row, every field, plus
-                         the row number and issues. A .csv or .json file holds
-                         every sheet; a directory gets one CSV per sheet with
-                         records, named RM_<file>_<sheet>.csv
+  -o, --output <path>    where to write the result (default: output/). A folder gets one workbook per sheet, named
+                         as the UI names them, RM_<file>_<sheet>.xlsx, with a
+                         timestamp added when that name is taken. A workbook
+                         holds the whole result in tabs: Summary, Mapping, Data,
+                         Issues and Left out; the terminal shows a summary. A
+                         .xlsx file holds every sheet in one workbook; a .csv
+                         or .json file holds the records, with the rows left
+                         out in *_issues.csv
       --json             print the full result (mapping and records) as JSON
   -v, --version          print the version
   -h, --help             print this help
 
 Examples
-  node dist/cli.js roster.xlsx
+  node dist/cli.js roster.xlsx                    # output/RM_roster_Sheet1.xlsx
+  node dist/cli.js roster.xlsx --ui
   node dist/cli.js roster.xlsx --sheet "Adds" --action term
   node dist/cli.js roster.xlsx --mapping sender-overrides.csv
-  node dist/cli.js roster.xlsx --no-ui --why
+  node dist/cli.js roster.xlsx --why
+  node dist/cli.js inbox/                         # output/20261117-143005/RM_….xlsx + summary.xlsx
+  node dist/cli.js a.xlsx b.xlsx -o results/      # results/20261117-143005/…
+  node dist/cli.js roster.xlsx -o result.xlsx     # mapping, data and issues in tabs
   node dist/cli.js roster.xlsx -o clean.csv       # rows left out, and why: clean_issues.csv
-  node dist/cli.js roster.xlsx -o out/     # out/RM_roster_Sheet1.csv
 `;
 
 interface Output {
@@ -116,7 +134,8 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
 			args: argv,
 			allowPositionals: true,
 			options: {
-				'no-ui': { type: 'boolean' },
+				ui: { type: 'boolean' },
+				'no-ui': { type: 'boolean' }, // the default now; still accepted
 				sheet: { type: 'string', short: 's' },
 				mapping: { type: 'string', short: 'm' },
 				action: { type: 'string', short: 'a' },
@@ -128,6 +147,7 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
 				'no-nppes': { type: 'boolean' },
 				'no-census': { type: 'boolean' },
 				'keep-dropped': { type: 'boolean' },
+				'no-cache': { type: 'boolean' },
 				why: { type: 'boolean' },
 				json: { type: 'boolean' },
 				output: { type: 'string', short: 'o' },
@@ -142,19 +162,21 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
 	const { values: opts, positionals } = args;
 
 	if (opts.version) return print(out, version);
+	if (opts['no-cache']) useDiskCache(false);
 	if (opts.help) return print(out, HELP.trimEnd());
 	if (!positionals.length) {
-		if (!io.openUi || opts['no-ui']) return print(err, HELP.trimEnd(), 1);
+		if (!io.openUi) return print(err, HELP.trimEnd(), 1);
 		const effectiveDate = parseDate(opts['effective-date'], err);
 		if (effectiveDate === null) return 1;
 		return startUi(io, { ...lookups(opts), ...(effectiveDate && { effectiveDate }), ...withInputs(opts) });
 	}
 	if (positionals[0] === 'fields') return fields(out, opts.json);
+	if (positionals.length > 1 || isDirectory(positionals[0]!)) return bulk(positionals, opts, io);
 	return map(positionals[0]!, opts, io);
 }
 
 interface MapOptions {
-	'no-ui'?: boolean | undefined;
+	ui?: boolean | undefined;
 	mapping?: string | undefined;
 	sheet?: string | undefined;
 	action?: string | undefined;
@@ -171,7 +193,8 @@ interface MapOptions {
 	output?: string | undefined;
 }
 
-async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
+/** `batch`: in a bulk run, collects a line per sheet written (see bulk). */
+async function map(file: string, opts: MapOptions, io: Io, batch?: BatchEntry[]): Promise<number> {
 	const { out, err, chooseSheet, openUi } = io;
 	let headerRow: number | undefined;
 	if (opts['header-row'] !== undefined) {
@@ -185,10 +208,12 @@ async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
 	const effectiveDate = parseDate(opts['effective-date'], err);
 	if (effectiveDate === null) return 1;
 
-	const toDir = opts.output !== undefined && isDirectory(opts.output);
-	const format = opts.output === undefined || toDir ? undefined : extname(opts.output).toLowerCase();
-	if (format !== undefined && format !== '.csv' && format !== '.json') {
-		err.write(`--output must be a directory or end in .csv or .json.\n`);
+	// With no -o, the result goes to ./output/, like -o output/ (not with --ui or --json). A path ending in / is a folder, made if missing.
+	const output = opts.output ?? (!opts.ui && !opts.json ? OUTPUT_DIR : undefined);
+	const toDir = output !== undefined && (output === OUTPUT_DIR || /[\\/]$/.test(output) || isDirectory(output));
+	const format = output === undefined || toDir ? undefined : extname(output).toLowerCase();
+	if (format !== undefined && format !== '.csv' && format !== '.json' && format !== '.xlsx') {
+		err.write(`--output must be a directory or end in .xlsx, .csv or .json.\n`);
 		return 1;
 	}
 
@@ -243,7 +268,8 @@ async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
 		sheets = match;
 	}
 	sheets = sheets.filter((s) => s.rows.length);
-	const ui = openUi && !opts['no-ui'] && !opts.json ? openUi : undefined;
+	const ui = opts.ui && !opts.json ? openUi : undefined;
+	if (opts.ui && !ui) err.write(opts.json ? `--ui is ignored with --json.\n` : `Can't open the UI when output is piped; running in the terminal.\n`);
 
 	if (!ui && opts.sheet === undefined && sheets.length > 1 && chooseSheet) {
 		const chosen = await chooseSheet(file, sheets);
@@ -265,28 +291,38 @@ async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
 	const wrote = (path: string, records: RosterRecord[], dropped: RosterRecord[], issuesPath: string) =>
 		err.write(`Wrote ${records.length} records to ${path} (${records.filter(hasProblem).length} with issues)` +
 			`; ${dropped.length} ${dropped.length === 1 ? 'row' : 'rows'} left out${keep && dropped.length ? ' (kept in the output by --keep-dropped)' : ''}, listed with why in ${issuesPath}\n`);
-	if (opts.output && toDir) {
+	// A workbook (see report.ts) with a summary of each sheet in the terminal: the details are in its tabs.
+	const report = (path: string, sheets: typeof results) => {
+		writeFileSync(path, toReport(basename(file), sheets, { keepDropped: keep, notes: { Checked: checkedWith(opts), 'Roster Mapper': version } }));
+		for (const r of sheets) out.write(summary(r));
+		err.write(`Wrote ${path}\n`);
+	};
+	if (output !== undefined && toDir) {
+		// One workbook per sheet, named as the UI names its downloads: RM_<file>_<sheet>.xlsx.
+		mkdirSync(output, { recursive: true });
 		for (const r of results) {
 			if (!r.records.length) {
 				err.write(`${r.sheet}: no records, nothing written\n`);
+				batch?.push({ file: basename(file), sheet: r.sheet, error: 'no records' });
 				continue;
 			}
-			const dropped = r.records.filter(isDropped);
-			const records = keep ? r.records : r.records.filter((x) => !isDropped(x));
-			const path = join(opts.output, outputName(r.file, 'csv'));
-			const issuesPath = join(opts.output, outputName(r.file, 'csv', '_issues'));
-			write(path, records, false);
-			writeFileSync(issuesPath, toIssuesCsv(r.records));
-			wrote(path, records, dropped, issuesPath);
+			const path = freeName(join(output, outputName(r.file, 'xlsx')));
+			report(path, [r]);
+			const leftOut = r.records.filter(isDropped).length;
+			batch?.push({
+				file: basename(file), sheet: r.sheet, action: r.action.action, category: r.category.category, rows: r.records.length,
+				movedForward: r.records.length - leftOut, leftOut, withIssues: r.records.filter(hasProblem).length, output: basename(path),
+			});
 		}
-	} else if (opts.output) {
+	} else if (output !== undefined && format === '.xlsx') report(output, results);
+	else if (output !== undefined) {
 		const all = results.flatMap((r) => r.records);
 		const dropped = all.filter(isDropped);
 		const records = keep ? all : all.filter((x) => !isDropped(x));
-		const issuesPath = opts.output.slice(0, -format!.length) + '_issues.csv';
-		write(opts.output, records, format === '.json');
+		const issuesPath = output.slice(0, -format!.length) + '_issues.csv';
+		write(output, records, format === '.json');
 		writeFileSync(issuesPath, toIssuesCsv(all));
-		wrote(opts.output, records, dropped, issuesPath);
+		wrote(output, records, dropped, issuesPath);
 	}
 
 	if (mapping && !ui) {
@@ -298,7 +334,8 @@ async function map(file: string, opts: MapOptions, io: Io): Promise<number> {
 		const session = { name: basename(file), mappingName: mapping?.name, sheet: opts.sheet, headerRow, action, category, effectiveDate, ...withInputs(opts), ...lookups(opts) };
 		return startUi({ ...io, openUi: ui }, session, { sheets: everySheet, mapping: mapping?.bytes });
 	} else if (opts.json) out.write(JSON.stringify({ file, sheets: results }, null, 2) + '\n');
-	else for (const result of results) out.write(table(result, opts.why ?? false));
+	// A workbook holds the mapping, issues and dropped rows, so the terminal gets just a summary (above).
+	else if ((format !== '.xlsx' && !toDir) || opts.why) for (const result of results) out.write(table(result, opts.why ?? false));
 	return 0;
 }
 
@@ -309,6 +346,7 @@ async function validate(records: RosterRecord[], on: Sources, io: Io): Promise<v
 	if (!records.length || (!on.nppes && !on.census)) return;
 	const lookup = io.lookup ?? { npi: lookupNpi, address: lookupAddress, byName: searchNpiByName };
 	const { npis, lines } = lookupTargets(records.map((r) => r.values));
+	const before = { ...lookupStats }; // a bulk run looks up file after file: count this file's alone
 	const lookups: Lookups = { nppes: new Map(), census: new Map(), names: new Map() };
 	const progress = io.progress ?? !!process.stderr.isTTY;
 	const answer = <T>(p: Promise<T>) => p.catch((e: Error) => ({ error: e.message }));
@@ -328,6 +366,12 @@ async function validate(records: RosterRecord[], on: Sources, io: Io): Promise<v
 		...(on.census ? [...lines] : []).map((l) => async () => void lookups.census.set(l, await answer(lookup.address(l)))),
 	]);
 	if (on.nppes) await runAll(nameSearches(records.map((r) => r.values), lookups).map((q) => async () => void lookups.names!.set(nameKey(q), await answer(lookup.byName(q)))));
+	const asked = lookupStats.asked - before.asked;
+	const saved = lookupStats.saved - before.saved;
+	if (!io.lookup && saved + asked) {
+		io.err.write(`Lookups: ${asked} asked of NPPES and Census, ${saved} reused` +
+			(!diskCacheOn() ? ' (--no-cache)\n' : ` from ${cacheFile().replace(homedir(), '~')}\n`));
+	}
 	for (const record of records) {
 		const checks = recordChecks(record.values, lookups, on);
 		const fixes = autoFixes(checks);
@@ -340,15 +384,64 @@ async function validate(records: RosterRecord[], on: Sources, io: Io): Promise<v
 	}
 }
 
+// Several files, or a folder of them: each mapped as on its own, every sheet, into a new folder per
+// run, output/<date-time>/ (or under -o's folder), so a batch never mixes with or overwrites another.
+// summary.xlsx there lists every sheet written and every file that failed, and why. A file that
+// fails doesn't stop the batch; the exit code is 1 when any did.
+async function bulk(inputs: string[], opts: MapOptions, io: Io): Promise<number> {
+	const { err } = io;
+	if (opts.ui || opts.json) return print(err, `--${opts.ui ? 'ui' : 'json'} works on one file at a time.`, 1);
+	if (opts.output !== undefined && extname(opts.output) && !isDirectory(opts.output)) return print(err, `With several files, --output must be a folder.`, 1);
+
+	const files: string[] = [];
+	for (const input of inputs) {
+		if (!isDirectory(input)) files.push(input);
+		else files.push(...readdirSync(input).filter(isRoster).sort().map((name) => join(input, name)));
+	}
+	if (!files.length) return print(err, `No .xlsx, .xls or .csv files in ${inputs.join(', ')}.`, 1);
+
+	let dir = join(opts.output ?? OUTPUT_DIR, timestamp());
+	for (let n = 2, base = dir; exists(dir); n++) dir = `${base}_${n}`; // two batches in the same second
+	const entries: BatchEntry[] = [];
+	let failed = 0;
+	for (const [i, file] of files.entries()) {
+		err.write(`\n[${i + 1}/${files.length}] ${file}\n`);
+		let last = '';
+		const quiet: Io = { ...io, err: { write: (t: string) => ((last = t), err.write(t)) } };
+		delete quiet.chooseSheet; // every sheet, no questions
+		delete quiet.openUi;
+		const before = entries.length;
+		const code = await map(file, { ...opts, output: dir + '/' }, quiet, entries);
+		if (entries.length === before) entries.push({ file: basename(file), sheet: '', error: last.trim() || 'nothing written' });
+		if (code || entries.slice(before).every((e) => e.error)) failed++;
+	}
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, 'summary.xlsx'), toBatchSummary(entries));
+	const written = entries.filter((e) => e.output).length;
+	err.write(`\n${files.length} ${files.length === 1 ? 'file' : 'files'}: ${written} ${written === 1 ? 'workbook' : 'workbooks'} written` +
+		`${failed ? `, ${failed} ${failed === 1 ? 'file' : 'files'} failed` : ''}. See ${join(dir, 'summary.xlsx')}\n`);
+	return failed ? 1 : 0;
+}
+
+// Roster files in a folder: spreadsheets, but not Excel's lock files (~$…), hidden files or Roster Mapper's own output (RM_…).
+const isRoster = (name: string) => /\.(xlsx|xls|csv)$/i.test(name) && !/^(~\$|\.|RM_)/.test(name) && name !== 'summary.xlsx';
+
 async function startUi({ err, openUi }: Io, session: Session, files: UiFiles = {}): Promise<number> {
 	try {
 		const url = await openUi!(session, files);
-		err.write(`Roster Mapper → ${url}\nPress Ctrl+C to stop. Use --no-ui to print to the terminal instead.\n`);
+		err.write(`Roster Mapper → ${url}\nPress Ctrl+C to stop.\n`);
 		return 0;
 	} catch (e) {
 		err.write(`Could not open the UI: ${(e as Error).message}\n`);
 		return 1;
 	}
+}
+
+// Two lines per sheet, for -o *.xlsx: "Data Table · ADD · individual · 34 of 42 columns mapped" and the row counts.
+function summary(r: AutomapResult & { sheet: string }): string {
+	const dropped = r.records.filter(isDropped).length;
+	return `${r.sheet} · ${r.action.action} · ${r.category.category} · ${Object.keys(r.mapping).length} of ${r.columns.length} columns mapped\n` +
+		`  ${r.records.length} rows: ${r.records.length - dropped} moved forward, ${dropped} left out, ${r.records.filter(hasProblem).length} with issues\n`;
 }
 
 function table(result: AutomapResult & { sheet: string }, why: boolean): string {
@@ -455,6 +548,12 @@ function print(out: Output, text: string, code = 0): number {
 	return code;
 }
 
+// "NPPES, Census" or what was turned off, for the report's Summary.
+function checkedWith(opts: MapOptions): string {
+	const on = [!opts['no-nppes'] && 'NPPES', !opts['no-census'] && 'Census'].filter(Boolean).join(', ');
+	return (on || 'no lookups') + (on && !diskCacheOn() ? ' (--no-cache)' : '');
+}
+
 // The lookups turned off with --no-nppes / --no-census. Unset ones are left out, so the UI uses the browser's saved choice.
 const lookups = (opts: { 'no-nppes'?: boolean | undefined; 'no-census'?: boolean | undefined }): Pick<Session, 'nppes' | 'census'> => ({
 	...(opts['no-nppes'] && { nppes: false }),
@@ -484,6 +583,33 @@ function parseDate(value: string | undefined, err: Output): string | undefined |
 }
 
 const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+// The path, or when it's taken, the path with the time added: RM_x_Sheet1_20261117-143005.xlsx.
+// (Then _2, _3, … if two land in the same second, as two files of the same name in one batch can.)
+function freeName(path: string): string {
+	if (!exists(path)) return path;
+	const ext = extname(path);
+	const base = `${path.slice(0, -ext.length)}_${timestamp()}`;
+	for (let n = 1; ; n++) {
+		const name = `${base}${n > 1 ? `_${n}` : ''}${ext}`;
+		if (!exists(name)) return name;
+	}
+}
+
+// The local time as 20261117-143005.
+function timestamp(): string {
+	const d = new Date();
+	const two = (n: number) => String(n).padStart(2, '0');
+	return `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
+}
+
+function exists(path: string): boolean {
+	try {
+		return statSync(path), true;
+	} catch {
+		return false;
+	}
+}
 
 function isDirectory(path: string): boolean {
 	try {

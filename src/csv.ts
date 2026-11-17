@@ -9,11 +9,14 @@ import { schema } from './schema.generated';
  * "; ". Records from several sheets can be passed together; `file.sheet` tells them apart. Pass
  * `fields` to fix the columns; defaults to outputFields(records).
  */
-export function toCsv(records: readonly RosterRecord[], fields?: readonly string[]): string {
+export const toCsv = (records: readonly RosterRecord[], fields?: readonly string[]): string => csvText(recordRows(records, fields));
+
+/** The rows toCsv writes, header first. */
+export function recordRows(records: readonly RosterRecord[], fields?: readonly string[]): string[][] {
 	const columns = fields ?? outputFields(records);
 	const lines = [[...columns, 'issues']];
 	for (const r of records) lines.push([...columns.map((c) => r.values[c] ?? ''), r.issues.map((i) => `${i.field}: ${i.message}`).join('; ')]);
-	return lines.map((line) => line.map(quote).join(',')).join('\r\n') + '\r\n';
+	return lines;
 }
 
 /**
@@ -21,7 +24,10 @@ export function toCsv(records: readonly RosterRecord[], fields?: readonly string
  * the `file.*` fields, `row` (in the sheet), `reason` (what dropped it), `other_issues`, then the
  * row's values as cleaned, so it can be fixed and sent again. Header only when nothing was dropped.
  */
-export function toIssuesCsv(records: readonly RosterRecord[]): string {
+export const toIssuesCsv = (records: readonly RosterRecord[]): string => csvText(leftOutRows(records));
+
+/** The rows toIssuesCsv writes, header first. */
+export function leftOutRows(records: readonly RosterRecord[]): string[][] {
 	const dropped = records.filter(isDropped);
 	const all = outputFields(dropped.length ? dropped : records);
 	const file = all.filter(isFileField);
@@ -35,8 +41,10 @@ export function toIssuesCsv(records: readonly RosterRecord[]): string {
 			...fields.map((f) => r.values[f] ?? ''),
 		]);
 	}
-	return lines.map((line) => line.map(quote).join(',')).join('\r\n') + '\r\n';
+	return lines;
 }
+
+const csvText = (lines: readonly string[][]) => lines.map((line) => line.map(quote).join(',')).join('\r\n') + '\r\n';
 
 // Fields marked hidden in the schema (CAQH ID, email, website, …): left out of the output when no
 // record has a value for them. Every other field is always a column, empty or not.

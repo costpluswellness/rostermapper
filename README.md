@@ -72,7 +72,9 @@ Transform column values to specific formats:
 ### Dropped rows
 A row that can't move forward is left out of Review's table and graph and of the export, and listed under Review's issues, dropped rows first. Validate still shows it, so a suggested fix (the right NPI) can bring it back. A row is dropped when:
 - the primary NPI is blank or `N/A` (the provider's NPI; the billing NPI in a facility roster)
-- it's an ADD with no practice address (a location name alone isn't a place) or no billing TIN
+- it's an ADD with no billing TIN
+
+A row with no practice address is kept, flagged as missing it; it just has no practice location (a location name alone isn't a place).
 
 Every row left out goes to an issues file, `RM_<file>_<sheet>_issues.csv` ("Download issues" on Export; written next to the output by `-o`): the row number, `reason` (what dropped it), `other_issues`, and the row's values, so it can be fixed and sent again. Output plus issues file always add up to every row.
 - any NPI fails standardization: not 10 digits, or a bad check digit
@@ -94,7 +96,9 @@ The file fields are set once per sheet and written into every record. They're no
 | `file.action`   | `adds`, `terms`, `update` or `mixed` (rows with different actions): the action set by the user, otherwise the detected one     |
 | `file.category` | `individual` or `facility`: set with `--category`, else `facility` when the sheet or file name says so, else `individual` when a column holds the provider's NPI, name, birth date or gender, else `facility` when only a practice or billing organization is named |
 
-The output file is named `RM_<file>_<sheet>.<ext>`: the `RM` prefix marks it as Roster Mapper output, then the roster's name without its extension and the sheet name, each with spaces dropped. `Q3 Roster.xlsx`, sheet `LOC TERM` → `RM_Q3Roster_LOCTERM.csv`. The UI's downloads use it; in the CLI, `-o <directory>` writes one such CSV per sheet, while `-o file.csv` or `-o file.json` holds every sheet in one file.
+The output file is named `RM_<file>_<sheet>.<ext>`: the `RM` prefix marks it as Roster Mapper output, then the roster's name without its extension and the sheet name, each with spaces dropped. `Q3 Roster.xlsx`, sheet `LOC TERM` → `RM_Q3Roster_LOCTERM.csv`. The UI's downloads use it, and so does the CLI: it saves one workbook per sheet to `./output/` (or the folder `-o` names), adding the time (`_20261117-143005`) when that name is taken. The workbook has five tabs: Summary, Mapping (each column, its field and why), Data (the rows that move forward), Issues (one line per problem) and Left out (each dropped row, its reason and values). `-o file.xlsx`, `-o file.csv` or `-o file.json` holds every sheet in one file instead.
+
+Given several files or a folder, the CLI maps each one, every sheet, into a new folder for the run: `output/20261117-143005/` (under `-o`'s folder, if given). So a batch never mixes with or overwrites another. `summary.xlsx` there has one line per sheet (action, category, rows moved forward and left out, its workbook), plus one per file that couldn't be mapped and why. A failed file doesn't stop the batch. In a folder, Excel lock files (`~$…`), hidden files and Roster Mapper's own `RM_…` output are skipped; subfolders aren't read.
 
 
 
@@ -108,10 +112,12 @@ Needs Node 22+.
 npm install -g rostermapper
 ```
 ```
-rostermapper roster.xlsx            # opens the UI with the file loaded
+rostermapper roster.xlsx            # runs every step in the terminal; saves output/RM_roster_<sheet>.xlsx
+rostermapper roster.xlsx --ui       # opens the UI with the file loaded
+rostermapper inbox/                 # every roster in the folder (or list several files): output/<date-time>/, with summary.xlsx
 rostermapper                        # opens the UI; upload there
-rostermapper roster.xlsx --no-ui    # runs every step in the terminal and prints the mapping and dropped rows
-rostermapper roster.xlsx -o clean.csv   # rows left out, and why, go to clean_issues.csv
+rostermapper roster.xlsx -o result.xlsx   # one workbook, every sheet
+rostermapper roster.xlsx -o clean.csv     # records as CSV; rows left out, and why, in clean_issues.csv
 rostermapper fields                 # the data dictionary
 rostermapper --help                 # every option: -s sheet, -a action, -c category, --header-row, -m mapping, -o output, --no-nppes, --no-census, --keep-dropped, --why, --json
 ```
@@ -144,7 +150,7 @@ node dist/cli.js roster.xlsx
 Fields live in `schema/fields.yaml`: type, description, format, required and preferred actions, aliases. After editing it run `pnpm schema`, which regenerates `src/schema.generated.ts` and [docs/canonical_fields.md](docs/canonical_fields.md); CI fails if either is stale. Taxonomy codes come from NUCC's CSV via `pnpm nucc`.
 
 # Development
-`pnpm check` runs the schema check, typecheck and build (CI runs the same). Put real rosters in `samples/`, which is git-ignored: they hold provider PII and must never be committed.
+`dev/rmap <file> [options]` runs the CLI straight from `src/`, no build and no pnpm: every edit shows on the next run, in about half a second. Link it onto your PATH once to run it from any folder: `ln -s "$PWD/dev/rmap" ~/.local/bin/rmap`, then `rmap roster.xlsx`. `pnpm cli` does the same, a second slower. Both need `pnpm install` once (for tsx). The UI still needs `pnpm build`, since it's served from `dist/ui/`. `pnpm check` runs the schema check, typecheck and build (CI runs the same). Put real rosters in `samples/`, which is git-ignored: they hold provider PII and must never be committed.
 
 # TODO
 - [ ] create the [1. Transform (not implemented yet)](#1-transform-not-implemented-yet) step
@@ -158,7 +164,7 @@ Fields live in `schema/fields.yaml`: type, description, format, required and pre
 
 Roster Mapper is MIT licensed. It uses three public sources; see [NOTICE](NOTICE) for the full text.
 
-- **NPPES NPI Registry**: public-domain US government data, no key. NPPES limits queries per hour; lookups are one per NPI and cached. Bulk work should use the monthly NPPES file instead.
+- **NPPES NPI Registry**: public-domain US government data, no key. NPPES limits queries per hour; lookups are one per NPI and kept between runs in `~/.cache/rostermapper/lookups.json` (NPPES answers for 7 days, Census for 90; readable only by you, since it holds NPIs, names and addresses from rosters). `--no-cache` looks everything up again; delete the file to clear it. Bulk work should use the monthly NPPES file instead.
 - **US Census Bureau Geocoder**: public domain, no key. This product uses the Census Bureau Data API but is not endorsed or certified by the Census Bureau.
 - **NUCC Health Care Provider Taxonomy**: © American Medical Association, published with NUCC. Embedded unchanged under its own notice, which permits copying as long as the notice stays, the contents are not changed and the copies are not sold or licensed. It is not covered by the MIT license; a product that sells or licenses the taxonomy itself needs NUCC's free license.
 
