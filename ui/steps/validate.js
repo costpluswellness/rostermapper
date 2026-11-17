@@ -91,7 +91,7 @@ function renderLine(parts, values, marks) {
   // An NPI is a link to its page in the NPPES NPI Registry.
   return segs.map(([t, m, link]) => {
     const text = m ? `<span class="v ${m.status}" title="${esc(m.tip)}">${esc(t)}</span>` : esc(t);
-    return link ? `<a class="npi" href="${link}" target="_blank" rel="noopener" title="Open in the NPPES NPI Registry">${text}</a>` : text;
+    return link ? `<a class="npi" href="${link}" target="_blank" rel="noopener" title="Open in the NPPES NPI Registry">${text}<span class="arrow" aria-hidden="true">↗</span></a>` : text;
   }).join('');
 }
 
