@@ -219,7 +219,7 @@ function loadMapping(name, bytes) {
   run();
 }
 
-function pickSheet(name, headerRow) {
+export function pickSheet(name, headerRow) {
   state.sheet = name;
   state.accepted = new Map(); // accepted suggestions belong to one sheet's rows
   state.declined = new Set();

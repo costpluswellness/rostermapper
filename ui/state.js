@@ -26,7 +26,7 @@ export const state = {
   fixes: new Map(), // Standardize: row → field → value typed over the cleaned one (✎)
   fixing: null, // Standardize: "kind|field|rows" of the cell being edited
   checking: false, onlyProblems: false, byRow: new Map(), before: new Map(),
-  reviewView: 'table', // Review: 'table' or 'graph'
+  reviewView: 'graph', // Review: 'graph' or 'table'
   checked: false, // Validate: lookups have run for this sheet
   sources: loadSources(), // Upload's Checks: { nppes, census }, true when that lookup may run
   effectiveDate: '', // Upload: YYYY-MM-DD for rows whose effective date is blank
@@ -34,6 +34,7 @@ export const state = {
   mode: loadMode(), // 'run': run every step on every file and show Results; 'steps': open each file at Upload
   files: [], // the files dropped together: { name, read() → sheets, status: waiting|running|done|error, results?, error? }
   current: -1, // the file open in the steps, by index in `files`
+  ignored: new Set(), // "file|sheet" of sheets left out of Results and the downloads (× in the rail)
   progress: '', // the status bar: "Checking 12 of 40…" while lookups run
   allowed: loadAllowed(), // field → values the user allowed as written (provider types like AHP): not flagged
 };

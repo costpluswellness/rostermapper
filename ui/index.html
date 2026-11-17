@@ -137,7 +137,7 @@
 </section>
 
 <section class="step" id="step-review" hidden>
-  <p class="review-bar"><span class="view-switch" id="review-view"><button data-review="table" class="on">Table</button><button data-review="graph">Graph</button></span> <span id="review-checking" class="muted small"></span></p>
+  <p class="review-bar"><span class="view-switch" id="review-view"><button data-review="graph" class="on">Graph</button><button data-review="table">Table</button></span> <span id="review-checking" class="muted small"></span></p>
   <div class="scroll tall" id="chains-wrap"><table id="chains" class="chains"></table></div>
   <div class="graph" id="graph" hidden>
     <svg id="links" aria-hidden="true"></svg>
@@ -229,6 +229,7 @@
     <li>Issues show once per provider, location or billing entity. Each links to what fixes it: a missing value to its field on Map, a value that couldn't be cleaned to Standardize. "Use" applies a source's value to every row of the entity.</li>
     <li>A value outside a fixed list (a sender's own provider type, such as AHP or PHYS) can be allowed as written: it's kept and no longer flagged, in this file and the next, until you remove it under Issues.</li>
     <li>The steps are tabs above the view. × hides a tab you don't use; + brings it back.</li>
+    <li>A file with several sheets lists them under it in the left pane: click one to open it. × ignores a sheet (a data dictionary, a notes tab): it's left out of Results and the downloads; ↺ brings it back.</li>
     <li>See which providers work at which locations and bill through which entities, and every issue by row.</li></ul></section>
   <section data-how="export"><h3>6 · Export</h3><ul>
     <li>Download a workbook (Summary, Mapping, Data, Issues and Left out tabs), or the records as CSV or JSON.</li></ul></section>

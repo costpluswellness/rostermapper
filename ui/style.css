@@ -74,6 +74,15 @@
 .rm-rail a[aria-disabled] { pointer-events: none; opacity: .4; }
 .rm-rail li small { display: block; padding: 0 8px 4px 10px; color: var(--muted); }
 .rm-rail li small.bad { color: var(--bad); }
+/* A file's sheets, under it: × ignores one (left out of Results and the downloads), ↺ brings it back */
+.rm-rail .sheet-list { margin: 0 0 4px 10px; border-left: 1px solid var(--rule); }
+.rm-rail .sheet-list li { display: flex; align-items: center; }
+.rm-rail .sheet-list a { flex: 1; min-width: 0; padding-top: 1px; padding-bottom: 1px; }
+.rm-rail .sheet-list .x { border: 0; background: none; padding: 0 6px; color: var(--muted); cursor: pointer; visibility: hidden; }
+.rm-rail .sheet-list li:hover .x, .rm-rail .sheet-list li.ignored .x, .rm-rail .sheet-list .x:focus-visible { visibility: visible; }
+.rm-rail .sheet-list .x:hover { color: inherit; }
+.rm-rail .sheet-list li.ignored a { text-decoration: line-through; color: var(--muted); }
+.rm table.results tr.ignored td { color: var(--muted); }
 .rm-steps { counter-reset: step; }
 .rm-steps li { counter-increment: step; }
 .rm-steps li.soon { counter-increment: none; }

@@ -4,47 +4,80 @@
 import { counts, issueRows, leftOutRows, mappingRows, sheetEntry, sheetWorkbooks, toBatchSummary, toReport, toZip, outputName } from './rostermapper.js';
 import { $, XLSX, download, esc, plural } from './lib.js';
 import { state } from './state.js';
-import { checkedWith, go, openFile, runFiles, timestamp } from './app.js';
+import { checkedWith, go, openFile, pickSheet, runFiles, timestamp } from './app.js';
 
 const MAX = 500; // rows drawn per tab; the workbooks hold every one
 let tab = 'sheets';
 let filter = '';
 
-/** The rail's file list: each file's name and how its run went. */
+// Sheets the user ignored (× in the rail) stay in the run but are left out of Results and the downloads.
+const isIgnored = (f, sheet) => state.ignored.has(`${f.name}|${sheet}`);
+const kept = (f) => (f.results ?? []).filter((r) => !isIgnored(f, r.sheet));
+// A file's sheets with data: from its run, or for the file open in the steps, as read.
+const sheetNames = (f, i) => f.results?.map((r) => r.sheet) ?? (i === state.current ? state.sheets.map((s) => s.name) : []);
+
+/** The rail's file list: each file's name and how its run went, and under it, its sheets when it has several. */
 export function renderFiles() {
   const status = (f) => {
     if (f.status === 'error') return f.error;
     if (f.status !== 'done') return f.status === 'running' ? 'running…' : '';
-    const c = counts(f.results.flatMap((r) => r.records));
+    const c = counts(kept(f).flatMap((r) => r.records));
     return `${c.movedForward} in · ${c.leftOut} out`;
   };
+  const open = state.step !== 'results';
   $('rail-files').hidden = !state.files.length;
-  $('file-list').innerHTML = state.files.map((f, i) =>
-    `<li><a href="#" data-file="${i}"${i === state.current && state.step !== 'results' ? ' aria-current="true"' : ''} title="${esc(f.name)}">${esc(f.name)}</a>` +
-    `<small class="${f.status === 'error' ? 'bad' : ''}">${esc(status(f))}</small></li>`).join('');
+  $('file-list').innerHTML = state.files.map((f, i) => {
+    const names = sheetNames(f, i);
+    const sheets = names.length > 1 ? `<ul class="sheet-list">${names.map((n) => {
+      const off = isIgnored(f, n);
+      return `<li${off ? ' class="ignored"' : ''}><a href="#" data-file="${i}" data-sheet="${esc(n)}"${open && i === state.current && n === state.sheet ? ' aria-current="true"' : ''} title="${esc(n)}">${esc(n)}</a>` +
+        `<button type="button" class="x" data-ignore="${i}" data-sheet="${esc(n)}" title="${off ? 'Bring this sheet back into Results and the downloads' : 'Ignore this sheet: leave it out of Results and the downloads'}">${off ? '↺' : '×'}</button></li>`;
+    }).join('')}</ul>` : '';
+    return `<li><a href="#" data-file="${i}"${open && i === state.current && names.length < 2 ? ' aria-current="true"' : ''} title="${esc(f.name)}">${esc(f.name)}</a>` +
+      `<small class="${f.status === 'error' ? 'bad' : ''}">${esc(status(f))}</small>${sheets}</li>`;
+  }).join('');
 }
 $('file-list').onclick = (e) => {
+  const x = e.target.closest('[data-ignore]');
+  if (x) return toggleIgnored(+x.dataset.ignore, x.dataset.sheet);
   const a = e.target.closest('[data-file]');
-  if (a) { e.preventDefault(); openFile(+a.dataset.file); }
+  if (!a) return;
+  e.preventDefault();
+  const i = +a.dataset.file;
+  const f = state.files[i];
+  // A sheet of the file already open: switch to it on the same tab. Otherwise open the file at Review,
+  // at that sheet, or at its first sheet not ignored.
+  if (a.dataset.sheet && i === state.current && state.step !== 'results') return pickSheet(a.dataset.sheet);
+  openFile(i, a.dataset.sheet ?? sheetNames(f, i).find((n) => !isIgnored(f, n)));
 };
 
-// Every sheet of every file that ran: { f (the file), i (its index), r (the sheet's result) }.
-const sheetsDone = () => state.files.flatMap((f, i) => (f.results ?? []).map((r) => ({ f, i, r })));
+function toggleIgnored(i, sheet) {
+  const f = state.files[i];
+  const key = `${f.name}|${sheet}`;
+  if (!state.ignored.delete(key)) state.ignored.add(key);
+  // Ignoring the sheet open moves to the file's next sheet still kept.
+  const next = sheetNames(f, i).find((n) => !isIgnored(f, n));
+  if (state.ignored.has(key) && i === state.current && state.sheet === sheet && state.step !== 'results' && next) return pickSheet(next);
+  go(state.step);
+}
+
+// Every sheet of every file that ran, but the ignored ones: { f (the file), i (its index), r (the sheet's result) }.
+const sheetsDone = () => state.files.flatMap((f, i) => kept(f).map((r) => ({ f, i, r })));
 
 // A table's rows with a "File" column first, for tables built per file.
 const withFile = (name, rows, head) => (head ? [['File', ...rows[0]]] : []).concat(rows.slice(1).map((row) => [name, ...row]));
 
 function tables() {
   const done = sheetsDone();
-  const byFile = state.files.filter((f) => f.results?.length);
+  const byFile = state.files.filter((f) => kept(f).length);
   const leftOut = byFile.flatMap((f, k) => {
-    const rows = leftOutRows(f.results.flatMap((r) => r.records));
+    const rows = leftOutRows(kept(f).flatMap((r) => r.records));
     const keep = ['file.sheet', 'row', 'reason', 'other_issues', 'provider.last_name', 'provider.first_name', 'provider.npi', 'billing.legal_name'].map((h) => rows[0].indexOf(h)).filter((x) => x >= 0);
     return withFile(f.name, rows.map((row) => keep.map((x) => row[x])), k === 0);
   });
   return {
-    mapping: byFile.flatMap((f, k) => withFile(f.name, mappingRows(f.results), k === 0)),
-    issues: byFile.flatMap((f, k) => withFile(f.name, issueRows(f.results.flatMap((r) => r.records)), k === 0)),
+    mapping: byFile.flatMap((f, k) => withFile(f.name, mappingRows(kept(f)), k === 0)),
+    issues: byFile.flatMap((f, k) => withFile(f.name, issueRows(kept(f).flatMap((r) => r.records)), k === 0)),
     leftOut,
     done,
   };
@@ -76,6 +109,8 @@ function sheetsTable() {
     state.files.map((f, i) => {
       if (f.status !== 'done') return match(f.name, f.error ?? '') ? `<tr><td>${esc(f.name)}</td><td colspan="8" class="${f.status === 'error' ? 'bad' : 'muted'}">${esc(f.error ?? (f.status === 'running' ? state.progress || 'running…' : 'waiting'))}</td></tr>` : '';
       return f.results.filter((r) => match(f.name, r.sheet, r.action.action, r.category.category)).map((r) => {
+        // An ignored sheet stays listed, faded, with a way back.
+        if (isIgnored(f, r.sheet)) return `<tr class="ignored"><td>${esc(f.name)}</td><td>${esc(r.sheet)}</td><td colspan="6" class="muted">ignored</td><td><button type="button" class="textlink" data-restore="${i}" data-sheet="${esc(r.sheet)}">restore</button></td></tr>`;
         const c = counts(r.records);
         return `<tr><td><a href="#" data-open="${i}" data-sheet="${esc(r.sheet)}" title="Open in the steps">${esc(f.name)}</a></td><td>${esc(r.sheet)}</td><td>${esc(r.action.action)}</td><td>${esc(r.category.category)}</td>` +
           `${num(c.rows)}${num(c.movedForward)}${num(c.leftOut)}${num(c.withIssues)}<td><button type="button" class="textlink" data-dl="${i}|${esc(r.sheet)}" title="${esc(outputName(r.file, 'xlsx'))}">xlsx</button></td></tr>`;
@@ -99,6 +134,8 @@ $('results-filter').oninput = (e) => { filter = e.target.value.trim().toLowerCas
 $('step-results').onclick = (e) => {
   const open = e.target.closest('[data-open]');
   if (open) { e.preventDefault(); return openFile(+open.dataset.open, open.dataset.sheet); }
+  const restore = e.target.closest('[data-restore]');
+  if (restore) return toggleIgnored(+restore.dataset.restore, restore.dataset.sheet);
   const dl = e.target.closest('[data-dl]');
   if (dl) {
     const [i, sheet] = dl.dataset.dl.split('|');
@@ -120,7 +157,7 @@ $('download-all').onclick = () => {
   const entries = [];
   for (const f of state.files) {
     if (f.error) entries.push({ file: f.name, sheet: '', error: f.error });
-    for (const book of sheetWorkbooks(f.name, f.results ?? [], { notes })) {
+    for (const book of sheetWorkbooks(f.name, kept(f), { notes })) {
       const name = unique(book.name);
       files.push({ name, bytes: book.bytes });
       entries.push(sheetEntry(f.name, book.result, name));
