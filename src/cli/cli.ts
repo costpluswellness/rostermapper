@@ -94,8 +94,10 @@ export interface Io {
 	chooseSheet?: (file: string, sheets: Sheet[]) => Promise<Sheet[] | null>;
 	/** --steps: wait before the next step; resolves to false to stop. Absent when no one is at a terminal. */
 	pause?: (next: string) => Promise<boolean>;
-	/** Open the browser UI. Absent when output is piped. */
+	/** Open the browser UI. */
 	openUi?: (session: Session, files?: UiFiles) => Promise<string>;
+	/** stdout is a terminal: with no file and no --ui, open the UI rather than print the help. */
+	terminal?: boolean;
 	/** NPPES and Census lookups, for Validate. Default: the live sources. */
 	lookup?: LookupFns;
 	/** Show lookup progress ("Checking 12 of 40…"). Default: when stderr is a terminal. */
@@ -107,7 +109,8 @@ const defaultIo = (): Io => ({
 	out: process.stdout,
 	err: process.stderr,
 	...(interactive() ? { chooseSheet: askForSheet, pause: askToContinue } : {}),
-	...(process.stdout.isTTY ? { openUi } : {}),
+	openUi,
+	terminal: !!process.stdout.isTTY,
 });
 
 const OPTIONS = {
@@ -164,7 +167,7 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
 	const settings = check(opts, err);
 	if (!settings) return 1;
 	if (!positionals.length) {
-		if (!io.openUi) return print(err, HELP.trimEnd(), 1);
+		if (!io.openUi || !(opts.ui || io.terminal)) return print(err, HELP.trimEnd(), 1);
 		return startUi(io, { ...lookups(opts), ...(settings.effectiveDate && { effectiveDate: settings.effectiveDate }), ...withInputs(settings) });
 	}
 	if (positionals.length > 1 || isDirectory(positionals[0]!)) return bulk(positionals, opts, settings, io);
@@ -249,7 +252,7 @@ async function single(file: string, opts: Flags, settings: Settings, io: Io): Pr
 	sheets = sheets.filter((s) => s.rows.length);
 
 	const ui = opts.ui && !opts.json ? io.openUi : undefined;
-	if (opts.ui && !ui) err.write(opts.json ? `--ui is ignored with --json.\n` : `Can't open the UI when output is piped; running in the terminal.\n`);
+	if (opts.ui && !ui) err.write(opts.json ? `--ui is ignored with --json.\n` : `Can't open the UI here; running in the terminal.\n`);
 	if (ui) {
 		const session = {
 			name: basename(file), mappingName: settings.mapping?.name, sheet: opts.sheet, headerRow: settings.headerRow, action: settings.action, category: settings.category,

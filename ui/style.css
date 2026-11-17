@@ -1,9 +1,12 @@
-/* Roster Mapper's layout, scoped to .rm, for embedding in another page (an admin portal).
+/* Roster Mapper's layout, scoped to .rm, for embedding in another page (an admin portal). A workbench:
+ * header, then the rail (files and steps) beside the main pane, then a status bar that sticks to the bottom.
  * No fonts, and no colours of its own for text, buttons or inputs: those come from the page around it.
  * Lines and tints are the page's text colour, faded, so they suit a light or a dark page.
  * The page can set:
  *   --rm-accent  current step, header row, highlights (default: the browser's link colour)
- *   --rm-bg      its background, behind sticky table headers (default: Canvas)
+ *   --rm-bg      its background, behind sticky table headers and the status bar (default: Canvas)
+ *   --rm-max-width  the bench's width (default: none, the full width of its container)
+ *   --rm-min-height its height, so the status bar sits at the bottom (default: 100vh)
  * Entity and result colours (provider, practice, billing; verified, warning, failed) carry meaning,
  * so they're fixed mid-tones, mixed with the background. */
 
@@ -20,8 +23,9 @@
   --bad-soft: color-mix(in srgb, var(--bad) 14%, transparent);
   --provider-ink: #3171b2; --practice-ink: #768d21; --billing-ink: #735eb5; --network-ink: #cb6120;
   --link: var(--rule); --link-lit: var(--muted);
-  display: block; max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px;
+  display: flex; flex-direction: column; min-height: var(--rm-min-height, 100vh); max-width: var(--rm-max-width, none); margin: 0 auto; padding: 0 16px;
 }
+.rm-bench { flex: 1; }
 .rm, .rm * { box-sizing: border-box; }
 .rm [hidden] { display: none !important; }
 .rm :is(button, input, select, table) { font: inherit; }
@@ -41,22 +45,47 @@
 .rm .textlink:hover { color: inherit; }
 .rm .tip { cursor: help; text-decoration: underline dotted var(--rule); text-underline-offset: 3px; }
 
-/* Header, step bar, back/next */
-.rm-top { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
-.rm-title { font-size: 1.15em; }
-.rm-top .linkish { margin-left: auto; }
-.rm-steps { display: flex; flex-wrap: wrap; gap: 0 1.5rem; list-style: none; margin: 1rem 0 1.25rem; padding: 0; border-bottom: 1px solid var(--rule); counter-reset: step; }
+/* Header */
+.rm-top { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.rm-title { font-size: 1.1em; }
+.rm-top-right { margin-left: auto; display: flex; align-items: center; gap: 1rem; }
+.rm-top .view-switch { margin: 0; }
+
+/* The bench: rail and main pane side by side; one column on narrow screens */
+.rm-bench { display: grid; grid-template-columns: 13.5rem minmax(0, 1fr); gap: 0; align-items: stretch; }
+@media (max-width: 760px) { .rm-bench { grid-template-columns: minmax(0, 1fr); } }
+.rm-main { padding: 1rem 0 1.5rem 1.5rem; min-width: 0; border-left: 1px solid var(--rule); }
+
+/* Rail: new run, results, files, the open file's steps */
+.rm-rail { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow: auto; padding: 1rem .75rem 1rem 0; font-size: 13px; }
+@media (max-width: 760px) {
+  .rm-rail { position: static; max-height: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .25rem; padding: .5rem 0; border-bottom: 1px solid var(--rule); }
+  .rm-rail > div { flex-basis: 100%; }
+  .rm-rail :is(ul, ol) { display: flex; flex-wrap: wrap; }
+  .rm-rail h4 { margin: .5rem 0 .2rem; }
+  .rm-rail li small { display: none; }
+  .rm-main { padding-left: 0; border-left: 0; }
+}
+.rm-rail h4 { margin: 1rem 0 .35rem; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.rm-rail ul, .rm-rail ol { list-style: none; margin: 0; padding: 0; }
+.rm-rail a { display: flex; align-items: baseline; gap: .5rem; padding: 3px 8px; border-left: 2px solid transparent; color: inherit; text-decoration: none; cursor: pointer; overflow-wrap: anywhere; }
+.rm-rail a:hover { background: var(--panel); }
+.rm-rail a[aria-current] { border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.rm-rail a[aria-disabled] { pointer-events: none; opacity: .4; }
+.rm-rail li small { display: block; padding: 0 8px 4px 10px; color: var(--muted); }
+.rm-rail li small.bad { color: var(--bad); }
+.rm-steps { counter-reset: step; }
 .rm-steps li { counter-increment: step; }
-.rm-steps a { display: block; padding: .5rem 0; color: inherit; text-decoration: none; opacity: .65; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
-.rm-steps a::before { content: counter(step) "\00a0\00a0"; opacity: .6; }
-.rm-steps a:hover { opacity: 1; }
-.rm-steps a[aria-current] { opacity: 1; border-color: var(--accent); font-weight: 600; }
-.rm-steps a[aria-disabled] { pointer-events: none; opacity: .35; }
+.rm-steps a::before { content: counter(step); min-width: 1em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rm-steps a small { margin-left: auto; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rm-steps a small.bad { color: var(--bad); }
+
+/* Status bar: progress and counts on the left, the step buttons on the right */
+.rm-status { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; min-height: 2.75rem; padding: 6px 0; border-top: 1px solid var(--rule); background: var(--bg); font-size: 13px; }
+.nav-right { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+#map-links { display: inline-flex; align-items: center; gap: 14px; }
 .rm-note { margin: 0 0 1rem; padding: .5rem .75rem; border-left: 3px solid var(--weak); background: var(--weak-soft); font-size: .9em; }
 .rm-note[title] { cursor: help; }
-.rm-nav { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin: -.5rem 0 1rem; }
-.nav-right { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; justify-content: flex-end; }
-#map-links { display: inline-flex; align-items: center; gap: 14px; font-size: 13px; }
 
 /* How it works: one dialog for every step */
 #how-dialog { max-width: 42rem; max-height: 85vh; padding: 1.25rem 1.5rem; border: 1px solid var(--rule); border-radius: .75rem; background: var(--bg); color: inherit; box-shadow: 0 10px 40px rgb(0 0 0 / .15); }
@@ -273,24 +302,12 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 .preview td { white-space: nowrap; font-size: 13px; }
 .preview td.issues { white-space: normal; min-width: 220px; color: var(--bad); }
 
-/* Several files: their list on the left, the work on the right */
-.rm-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
-.rm-layout:has(> .rm-files:not([hidden])) { grid-template-columns: 13rem minmax(0, 1fr); }
-@media (max-width: 760px) { .rm-layout:has(> .rm-files:not([hidden])) { grid-template-columns: minmax(0, 1fr); } }
-.rm-files { margin-top: 1rem; font-size: 13px; position: sticky; top: 1rem; align-self: start; max-height: calc(100vh - 2rem); overflow: auto; }
-.rm-files ul { list-style: none; margin: .5rem 0 0; padding: 0; }
-.rm-files li { padding: 4px 0 4px 8px; border-left: 2px solid transparent; }
-.rm-files a { color: inherit; text-decoration: none; overflow-wrap: anywhere; }
-.rm-files a:hover { text-decoration: underline; }
-.rm-files a.on { font-weight: 600; padding-left: 8px; border-left: 2px solid var(--accent); }
-.rm-files small { display: block; color: var(--muted); }
-.rm-files .bad { color: var(--bad); }
-
-/* Results: every file's sheets, then what was left out and the other issues */
+/* Results: the workbook's tables, one tab at a time, with a filter */
 .results-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin: 0 0 12px; }
 .rm details { margin-top: 1rem; }
 .rm details > summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
 .rm table.results td.num, .rm table.results th.num { text-align: right; }
 .rm table.results .bad { color: var(--bad); }
-#mode { margin-bottom: 10px; }
-.rm :is(#left-out, #all-issues) td:last-child { min-width: 18rem; }
+#results-filter { margin-left: auto; width: 14rem; }
+.rm table.results td { font-size: 13px; }
+.rm table.results td.long { min-width: 18rem; }

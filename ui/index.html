@@ -10,7 +10,7 @@
      on its own. A portal embedding Roster Mapper drops it and sets --rm-accent (and --rm-bg) itself. -->
 <style>
   :root { color-scheme: light dark; }
-  body { margin: 0; font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { margin: 0; font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: Canvas; color: CanvasText; }
   .rm { --rm-accent: #e8590c; }
   button, input, select { padding: 5px 10px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 6px; background: Canvas; color: inherit; }
   button { cursor: pointer; }
@@ -24,45 +24,42 @@
 
 <header class="rm-top">
   <strong class="rm-title">Roster Mapper</strong>
-  <span class="muted">Map a provider roster to the standard schema</span>
   <span id="filename" class="rm-badge" hidden></span>
-  <button type="button" id="how" class="linkish">How it works</button>
+  <span class="rm-top-right">
+    <span class="view-switch" id="mode"><button type="button" data-mode="run" class="on" title="Run every step on every file with the recommended options, as the CLI does, and show the results. Open any file to see its steps.">Run</button><button type="button" data-mode="steps" title="Open each file at Upload and go through its steps one at a time: to see why a roster maps the way it does">Step by step</button></span>
+    <button type="button" id="how" class="linkish">How it works</button>
+  </span>
 </header>
 
-<div class="rm-layout">
-<!-- Files from a folder or several dropped at once: each one's result, and a way into its steps. -->
-<aside id="files" class="rm-files" hidden>
-  <a href="#" id="files-results" title="Every file's result: what moved forward, what was left out and why">Results</a>
-  <ul id="file-list"></ul>
-</aside>
-<div class="rm-work">
-<ol id="steps" class="rm-steps">
-  <li><a href="#" data-step="upload">Upload</a></li>
-  <li><a aria-disabled="true" title="Not built yet">Transform <span class="rm-soon">soon</span></a></li>
-  <li><a href="#" data-step="map">Map</a></li>
-  <li><a href="#" data-step="standardize">Standardize</a></li>
-  <li><a href="#" data-step="validate">Validate</a></li>
-  <li><a href="#" data-step="review">Review</a></li>
-  <li><a href="#" data-step="export">Export</a></li>
-</ol>
-<nav class="rm-nav" id="nav">
-  <button type="button" id="back">← Back</button>
-  <span class="nav-right">
-    <span id="map-links" hidden>
-      <span id="edits-note" class="muted"></span>
-      <button type="button" id="clear-edits" class="textlink" hidden>Undo changes</button>
-      <button type="button" id="download-mapping" class="textlink">Download mapping file</button>
-    </span>
-    <button type="button" id="run-all" title="Run the remaining steps with the recommended options (lookups, trusted fixes) and go to Export">Run all steps</button>
-    <button type="button" id="next" class="primary">Next →</button>
-  </span>
+<div class="rm-bench">
+<!-- The rail: a new run, its results, its files and, for the file open, its steps. -->
+<nav class="rm-rail" aria-label="Files and steps">
+  <a href="#" id="rail-new" title="Files and options for a new run">New run</a>
+  <a href="#" id="rail-results" title="What the run did to every file: sheets, mapping, issues and rows left out">Results</a>
+  <div id="rail-files" hidden>
+    <h4>Files</h4>
+    <ul id="file-list"></ul>
+  </div>
+  <div id="rail-steps" hidden>
+    <h4>Steps</h4>
+    <ol id="steps" class="rm-steps">
+      <li><a href="#" data-step="upload">Upload <small data-count="upload"></small></a></li>
+      <li><a aria-disabled="true" title="Not built yet">Transform <span class="rm-soon">soon</span></a></li>
+      <li><a href="#" data-step="map">Map <small data-count="map"></small></a></li>
+      <li><a href="#" data-step="standardize">Standardize <small data-count="standardize"></small></a></li>
+      <li><a href="#" data-step="validate">Validate <small data-count="validate"></small></a></li>
+      <li><a href="#" data-step="review">Review <small data-count="review"></small></a></li>
+      <li><a href="#" data-step="export">Export <small data-count="export"></small></a></li>
+    </ol>
+  </div>
 </nav>
+
+<div class="rm-main">
 <p id="transform-banner" class="rm-note" hidden></p>
 
 <section class="step" id="step-upload">
   <div class="rm-grid">
     <div>
-      <p class="view-switch" id="mode"><button type="button" data-mode="quick" class="on" title="Run every step with the recommended options and show the result. Open any file to go through its steps.">Quick</button><button type="button" data-mode="steps" title="Go through each file's steps one by one">Step by step</button></p>
       <label id="drop">
         <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple hidden>
         <svg class="drop-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 16V4m0 0-5 5m5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -121,11 +118,11 @@
 
 <section class="step" id="step-results" hidden>
   <p class="results-bar"><span id="results-summary"></span>
-    <span class="nav-right"><button type="button" id="rerun" class="textlink" title="Run every file again with the options under Upload">Run again</button>
-    <button type="button" id="download-all" class="primary" title="One workbook per sheet (Summary, Mapping, Data, Issues, Left out), plus summary.xlsx when there are several">Download all</button></span></p>
-  <div class="scroll"><table id="results" class="results"></table></div>
-  <details id="left-out-wrap" open><summary id="left-out-title">Left out</summary><div class="scroll short tall"><table id="left-out"></table></div></details>
-  <details id="issues-wrap"><summary id="issues-title">Issues</summary><div class="scroll short tall"><table id="all-issues"></table></div></details>
+    <span class="nav-right"><button type="button" id="rerun" class="textlink" title="Run every file again with the options under New run">Run again</button>
+    <button type="button" id="download-all" class="primary" title="One workbook per sheet (Summary, Mapping, Data, Issues, Left out), in a zip with summary.xlsx when there are several">Download all</button></span></p>
+  <p class="results-bar"><span class="view-switch" id="results-tabs"></span>
+    <input type="search" id="results-filter" placeholder="Filter" aria-label="Filter rows" spellcheck="false"></p>
+  <div class="scroll tall"><table id="results" class="results"></table></div>
 </section>
 
 <section class="step" id="step-map" hidden>
@@ -170,15 +167,33 @@
 </div>
 </div>
 
+<!-- The status bar: progress, counts for the sheet open, and the way through its steps. -->
+<footer class="rm-status">
+  <span id="status" class="muted" aria-live="polite"></span>
+  <span class="nav-right" id="step-nav" hidden>
+    <span id="map-links" hidden>
+      <span id="edits-note" class="muted"></span>
+      <button type="button" id="clear-edits" class="textlink" hidden>Undo changes</button>
+      <button type="button" id="download-mapping" class="textlink">Download mapping file</button>
+    </span>
+    <button type="button" id="back">← Back</button>
+    <button type="button" id="run-all" title="Run the remaining steps with the recommended options (lookups, trusted fixes) and go to Export">Run all steps</button>
+    <button type="button" id="next" class="primary">Next →</button>
+  </span>
+</footer>
+
 <!-- How it works: one dialog for every step; the current step's section is marked. -->
 <dialog id="how-dialog">
   <h2>How Roster Mapper works</h2>
   <section data-how="upload"><h3>1 · Upload</h3><ul>
     <li>Drop xlsx, xls or csv files, or a folder of them. They're read in this browser; SSNs are removed as they're read.</li>
-    <li><b>Quick</b> (the default) runs every step with the recommended options and shows what moved forward, what was left out and why, with a workbook per sheet to download. Click a file to go through its steps.</li>
-    <li><b>Step by step</b> opens each file at this step instead. "Run all steps" finishes a file from wherever you are.</li>
+    <li><b>Run</b> (the default) runs every step on every file with the recommended options, as the command line does, and shows Results. Click a file to go through its steps.</li>
+    <li><b>Step by step</b> opens each file at this step instead, to see each step's result. "Run all steps" finishes a file from wherever you are.</li>
     <li>The header row is found automatically. Click another row in the preview to change it.</li>
     <li>The action (ADD, UPDATE or TERM) comes from an action column, then the sheet name, then the file name.</li></ul></section>
+  <section data-how="results"><h3>Results</h3><ul>
+    <li>The same tables as the workbook the command line writes: each sheet's counts, the mapping (each column, its field and why), every issue, and every row left out and why.</li>
+    <li>Download a workbook per sheet (Summary, Mapping, Data, Issues and Left out tabs), or all of them in a zip with <code>summary.xlsx</code>.</li></ul></section>
   <section data-how="transform"><h3>2 · AI transform <span class="rm-soon">soon</span></h3><ul>
     <li>Some rosters don't fit one row per provider and location. AI can detect and make these transformations. Example transformations:
       <ul>

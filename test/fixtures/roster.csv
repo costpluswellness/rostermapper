@@ -1,0 +1,9 @@
+Example Health Network roster (synthetic test data),,,,,,,,,,,,,,,,,
+Action,Provider First Name,Provider Last Name,Degree,Individual NPI,Gender,Taxonomy,Group NPI,Tax ID,Practice Name,Practice Address,Suite,City,State,Zip,Phone,Effective Date,SSN
+Add,JANE,DOE,M.D.,1999990009,F,207Q00000X,1999990058,123456789,Example Family Clinic,100 Main St,Suite 200,austin,Texas,78701,(512) 555-0100,2026-12-01,123-45-6789
+Add,Jane,Doe,MD,1999990009,F,207Q00000X,1999990058,12-3456789,Example Family Clinic,200 Oak Ave,,Round Rock,TX,78664,512.555.0101,12/1/2026,123-45-6789
+Add,john,smith,D.O.,1999990017,M,207R00000X,1999990058,12-3456789,Example Family Clinic,100 Main St,Suite 200,Austin,TX,78701,5125550100,2026-12-01,
+Add,Ana,Lopez,NP,1999990025,F,363L00000X,1999990058,,Example Family Clinic,100 Main St,Suite 200,Austin,TX,78701,5125550100,2026-12-01,
+Term,Sam,Lee,MD,N/A,M,,1999990058,12-3456789,Example Family Clinic,100 Main St,,Austin,TX,78701,,2026-11-30,
+Term,Kim,Park,MD,1999990000,F,,1999990058,12-3456789,Example Family Clinic,100 Main St,,Austin,TX,78701,,2026-11-30,
+Update,Lee,Chan,PA-C,1999990033,M,363A00000X,1999990058,12-3456789,Example Family Clinic,100 Main St,Suite 200,Austin,TX,8701,5125550100,2026-12-15,

@@ -113,7 +113,9 @@ async function lookup(url: string, params: URLSearchParams, res: ServerResponse)
 	}
 }
 
+// BROWSER=none: serve without opening a browser (to open it elsewhere, or in tests).
 function openBrowser(url: string): void {
+	if (process.env.BROWSER === 'none') return;
 	const [cmd, args] =
 		process.platform === 'darwin' ? ['open', [url]] :
 		process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] :
