@@ -88,8 +88,11 @@ function renderLine(parts, values, marks) {
     if (last && !p.pre && !link && !last[2] && last[1]?.status === m?.status) { last[0] += sep + value; if (m) last[1].tip += `\n${m.tip}`; }
     else { if (last) segs.push([sep, undefined]); if (p.pre) segs.push([p.pre, undefined]); segs.push([value, m && { ...m }, link]); }
   }
-  return segs.map(([t, m, link]) => (m ? `<span class="v ${m.status}" title="${esc(m.tip)}">${esc(t)}</span>` : esc(t)) +
-    (link ? ` <a class="ext" href="${link}" target="_blank" rel="noopener" title="Open in the NPPES NPI Registry">↗</a>` : '')).join('');
+  // An NPI is a link to its page in the NPPES NPI Registry.
+  return segs.map(([t, m, link]) => {
+    const text = m ? `<span class="v ${m.status}" title="${esc(m.tip)}">${esc(t)}</span>` : esc(t);
+    return link ? `<a class="npi" href="${link}" target="_blank" rel="noopener" title="Open in the NPPES NPI Registry">${text}</a>` : text;
+  }).join('');
 }
 
 // One entity's checks: its values (first non-empty per field, as elsewhere), each checked field's
@@ -130,7 +133,8 @@ export function entityCard(kind, entity) {
   const { values, items, status, marks, formats } = entityChecks(kind, entity);
   const hover = [...items.map((i) => i.acc ? `✓ ${LABEL(i.f)}: accepted from ${i.acc.source}` : `${MARK[i.check.status]} ${LABEL(i.f)}: ${i.check.detail}`),
     ...formats.map(({ f, issue }) => `✕ ${LABEL(f)}: ${issue.message}`)].join('\n');
-  const mark = status ? `<span class="mark ${status}" title="${esc(hover)}">${MARK[status]}</span>` : '';
+  // A mark only for a problem (⚠ or ✕): a value is taken as confirmed unless marked.
+  const mark = status && status !== 'ok' && status !== 'skip' ? `<span class="mark ${status}" title="${esc(hover)}">${MARK[status]}</span>` : '';
   // Changes applied on their own (Census addresses, NPPES legal names): folded under "N changes from …", each with its old value.
   const auto = items.filter((i) => i.acc?.auto);
   const key = entity.rows.join(',');

@@ -52,7 +52,7 @@ In a terminal it waits for Enter before the next step; `q` stops. Piped, it prin
 - Every file runs through every step, as the command line does, then **Results** shows the workbook's tables (Sheets, Mapping, Issues, Left out) across every file, with a filter, and the workbooks to download ("Download all": a zip with `summary.xlsx`).
 - Click a file to open its **Review**, the file's one page:
   - its sheets along the top: click one to open it, × to ignore it (left out of Results and the download), ↺ to bring it back;
-  - its providers, locations and billing as a graph (the default) or a table, each card carrying its checks: ✓ when checked, problem values highlighted, ↗ to the NPPES NPI Registry, "Use" for a suggestion;
+  - its providers, locations and billing as a graph (the default) or a table, each card carrying its checks: problem values highlighted (anything unmarked is taken as confirmed), each NPI a link to the NPPES NPI Registry, "Use" for a suggestion;
   - its issues, once per provider, location or billing entity, each with its fix: "mapping", "edit" (type the right value), "Use" (a source's value, for every row of the entity) or "Allow" (a sender's own code kept as written);
   - **Mapping** (which column fills each field, as a dialog), **Raw data** (the sheet as it is in the file; click a row to make it the header), **Run checks** (look everything up again) and **Download** (one workbook with every sheet not ignored, as left here).
 

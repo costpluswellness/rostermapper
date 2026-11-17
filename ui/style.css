@@ -290,8 +290,8 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 .review-bar { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
 .review-bar .view-switch { margin: 0; }
 .rm .none { font-style: italic; color: var(--weak); }
-.rm a.ext { text-decoration: none; color: var(--accent); font-size: .9em; }
-.rm a.ext:hover { text-decoration: underline; }
+.rm a.npi { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 2px; }
+.rm a.npi:hover { text-decoration-color: currentColor; }
 .rm ul.fixes { list-style: none; margin: 6px 0 0; padding: 6px 0 0; border-top: 1px solid var(--rule); font-size: 12px; color: inherit; }
 .rm ul.fixes li, .rm ul.inline li { margin-bottom: 3px; }
 .rm :is(ul.fixes, ul.inline) li.fail { color: var(--bad); }
