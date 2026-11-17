@@ -3,7 +3,7 @@
 // Mapping, Issues and Left out. Each file opens in the steps from here, to see or change what happened.
 import { counts, issueRows, leftOutRows, mappingRows, sheetEntry, sheetWorkbooks, toBatchSummary, toReport, toZip, outputName } from './rostermapper.js';
 import { $, XLSX, download, esc, plural } from './lib.js';
-import { state } from './state.js';
+import { state, withInputs } from './state.js';
 import { checkedWith, go, openFile, pickSheet, remember, runFiles, timestamp } from './app.js';
 
 const MAX = 500; // rows drawn per tab; the workbooks hold every one
@@ -132,7 +132,7 @@ $('step-results').onclick = (e) => {
     const [i, sheet] = dl.dataset.dl.split('|');
     const f = state.files[+i];
     const r = f.results.find((x) => x.sheet === sheet);
-    download(toReport(f.name, [r], { notes: { Checked: checkedWith() } }), XLSX, outputName(r.file, 'xlsx'));
+    download(toReport(f.name, withInputs([r]), { notes: { Checked: checkedWith() } }), XLSX, outputName(r.file, 'xlsx'));
   }
 };
 $('rerun').onclick = () => runFiles();
@@ -148,7 +148,7 @@ $('download-all').onclick = () => {
   const entries = [];
   for (const f of state.files) {
     if (f.error) entries.push({ file: f.name, sheet: '', error: f.error });
-    for (const book of sheetWorkbooks(f.name, kept(f), { notes })) {
+    for (const book of sheetWorkbooks(f.name, withInputs(kept(f)), { notes })) {
       const name = unique(book.name);
       files.push({ name, bytes: book.bytes });
       entries.push(sheetEntry(f.name, book.result, name));

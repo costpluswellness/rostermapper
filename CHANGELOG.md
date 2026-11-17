@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- UI: New run is the drop, with the action, a mapping file and the lookups under it; contract ID and sender email are asked for at Download (Review's dialog, Results' Download all); dark by default, with a switch to light
 - A blank taxonomy is filled with the provider's primary taxonomy from NPPES, applied like NPPES legal names and Census addresses (undo it in the UI)
 - `--allow field=values` (and the `allowed` option of `automap` and `runSheets`): keep a sender's own codes as written instead of flagging them, for fields with a fixed list, like `--allow provider_type=AHP,PHYS`
 - UI: one page per file, Review: its sheets as tabs (× ignores one), a graph or table whose cards carry the checks (problems highlighted, each NPI a link to the NPPES NPI Registry, "No taxonomy" and the like), its issues grouped by entity with their fixes (mapping, edit in place, "Use" for every row of the entity, "Allow" for a value outside a fixed list), Mapping and Raw data as dialogs, Run checks, and Download for one workbook of every sheet kept. The Map, Standardize, Validate and Export views and the Step by step mode are gone (`--steps` remains in the CLI)
