@@ -31,7 +31,7 @@
 		"NOTICE"
 	],
 	"scripts": {
-		"cli": "tsx src/bin.ts",
+		"cli": "tsx src/cli/bin.ts",
 		"build": "rm -rf dist && tsup",
 		"schema": "node scripts/build-schema.ts",
 		"schema:check": "node scripts/build-schema.ts --check",

@@ -1,3 +1,3 @@
-// What the browser UI (site/app.js) imports, bundled with SheetJS into dist/ui/rostermapper.js.
+// What the browser UI (ui/) imports: the library and SheetJS, bundled into dist/ui/rostermapper.js.
 export * from './index';
-export { readWorkbook, sheetEntry, toBatchSummary, toReport, toZip } from './workbook';
+export * from './workbook';

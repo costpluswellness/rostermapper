@@ -1,6 +1,6 @@
 Roster Mapper is released under the MIT License (see LICENSE), with the exceptions below.
 
-Health Care Provider Taxonomy Code Set (src/nucc.generated.ts)
+Health Care Provider Taxonomy Code Set (src/schema/nucc.generated.ts)
   © Copyright American Medical Association. Published in cooperation with the National
   Uniform Claim Committee (NUCC) by the AMA. Permission is granted to any individual to
   copy and use this material as long as the copyright statement is included, the contents
