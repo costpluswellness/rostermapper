@@ -48,7 +48,7 @@ In a terminal it waits for Enter before the next step; `q` stops. Piped, it prin
 
 `rostermapper --ui` (or `rostermapper` with no file, in a terminal) serves the UI on `127.0.0.1` and opens it. Only this machine can connect; files are read in the browser, and only NPIs and addresses go out, through the local server, to NPPES and the Census geocoder. Set `PORT` to choose the port and `BROWSER=none` to not open a browser.
 
-- **New run**: drop files or a folder, set the options (action, default effective date, contract ID, sender email, mapping file) and which outside sources may be used.
+- **New run**: drop files or a folder. Under the drop: the action (to override detection), a mapping file, and which lookups may run (NPPES, Census). A default effective date is set on a file's Mapping ("…" on the field); a contract ID and sender email are asked for at Download. Dark by default; ☀︎/☾ in the header switches.
 - Every file runs through every step, as the command line does, then **Results** shows the workbook's tables (Sheets, Mapping, Issues, Left out) across every file, with a filter, and the workbooks to download ("Download all": a zip with `summary.xlsx`).
 - Click a file to open its **Review**, the file's one page:
   - its name and totals, then its sheets as tabs: click one to open it, × to ignore it (left out of Results and the download), ↺ to bring it back;

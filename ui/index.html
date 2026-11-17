@@ -8,8 +8,11 @@
 <!-- The host page's look. style.css only lays Roster Mapper out and takes its font, colours, buttons
      and inputs from the page around it; this block plays that page when the CLI serves Roster Mapper
      on its own. A portal embedding Roster Mapper drops it and sets --rm-accent (and --rm-bg) itself. -->
+<script>try { document.documentElement.dataset.theme = localStorage.getItem('rostermapper.theme') || 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; }</script>
 <style>
   :root { color-scheme: light dark; }
+  :root[data-theme="dark"] { color-scheme: dark; }
+  :root[data-theme="light"] { color-scheme: light; }
   body { margin: 0; font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: Canvas; color: CanvasText; }
   .rm { --rm-accent: #e8590c; }
   button, input, select { padding: 5px 10px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 6px; background: Canvas; color: inherit; }
@@ -25,6 +28,7 @@
 <header class="rm-top">
   <strong class="rm-title">Roster Mapper</strong>
   <span class="rm-top-right">
+    <button type="button" id="theme" class="linkish theme" aria-label="Switch light or dark"></button>
     <button type="button" id="how" class="linkish">How it works</button>
   </span>
 </header>
@@ -44,62 +48,36 @@
 <p id="transform-banner" class="rm-note" hidden></p>
 
 <section class="step" id="step-upload">
-  <div class="rm-grid">
-    <div>
-      <label id="drop">
-        <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple hidden>
-        <svg class="drop-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 16V4m0 0-5 5m5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <b id="drop-title">Drop roster files or a folder</b>
-        <span id="drop-hint" class="muted">or click to browse · xlsx, xls, csv</span>
-      </label>
-      <p class="hint center"><span id="private-note">Read in this browser. Nothing is stored, SSNs are never read. · </span><label class="textlink">Open a folder<input type="file" id="folder" webkitdirectory hidden></label></p>
-
-      <fieldset class="sources">
-        <legend>External sources</legend>
-        <label class="rm-check" aria-disabled="true" title="Not built yet"><input type="checkbox" disabled><span>AI transform <span class="rm-soon">soon</span>
-          <span class="hint">Use decision models to identify the structure of the file, determine whether any structural transformations are needed, and implement these transformations. See How it works for more detail.</span></span></label>
-        <label class="rm-check"><input type="checkbox" id="use-nppes" checked><span>NPPES NPI Registry
-          <span class="hint">Sends each NPI to confirm it exists, is active and matches the record.</span></span></label>
-        <label class="rm-check"><input type="checkbox" id="use-census" checked><span>US Census geocoder <span class="muted">(recommended)</span>
-          <span class="hint">Sends practice and billing addresses to check city, state and ZIP, and uses the standardized version by default.</span></span></label>
-      </fieldset>
+  <!-- A new run: drop files. Everything else happens on each file's Review; contract ID and sender
+       email are asked for at Download. Action and a mapping file apply to the run, so they're here. -->
+  <div class="landing">
+    <label id="drop">
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple hidden>
+      <svg class="drop-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 16V4m0 0-5 5m5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b id="drop-title">Drop roster files or a folder</b>
+      <span id="drop-hint" class="muted">or click to browse · xlsx, xls, csv</span>
+    </label>
+    <p class="hint center"><span id="private-note">Read in this browser. Nothing is stored, SSNs are never read. · </span><label class="textlink">Open a folder<input type="file" id="folder" webkitdirectory hidden></label></p>
+    <div class="landing-options">
+      <label class="opt" title="Auto-detect reads it from an action column, then the sheet name, then the file name">Action
+        <select id="action"><option value="">Auto-detect</option><option>ADD</option><option>UPDATE</option><option>TERM</option></select></label>
+      <span class="opt" title="A CSV of column,field lines that override matching for specific headers">Mapping file
+        <span class="filepick"><label class="rm-button" id="mapping-pick">Load…<input type="file" id="mapping" accept=".csv,.xlsx" hidden></label><button type="button" id="mapping-clear" class="textlink small" hidden>remove</button></span></span>
+      <span class="opt" title="What leaves this browser: each NPI goes to the NPPES NPI Registry, each practice and billing address to the US Census geocoder">Look up
+        <label class="check"><input type="checkbox" id="use-nppes" checked> NPPES</label>
+        <label class="check"><input type="checkbox" id="use-census" checked> Census</label></span>
     </div>
-
-    <div id="options">
-      <fieldset>
-        <legend>Roster</legend>
-        <div class="rm-row">
-          <label class="rm-field">Action
-            <select id="action"><option value="">Auto-detect</option><option>ADD</option><option>UPDATE</option><option>TERM</option></select>
-            <span class="hint">Auto-detect from file contents or set value to override.</span></label>
-          <label class="rm-field">Default effective date
-            <input type="date" id="effective-date">
-            <span class="hint">Enter fallback effective date for rows that don't have it.</span></label>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>Contract <span class="muted normal">· optional</span></legend>
-        <div class="rm-row">
-          <label class="rm-field">Contract ID
-            <input type="text" data-input="network.contract_id" autocomplete="off" spellcheck="false">
-            <span class="hint">Written into every row of the export.</span></label>
-          <label class="rm-field">Sender email
-            <input type="email" data-input="network.sender_email" autocomplete="off" spellcheck="false">
-            <span class="hint">Who sent the roster; written into every row.</span></label>
-        </div>
-        <div class="rm-field">Custom mapping file
-          <span class="filepick"><label class="rm-button" id="mapping-pick">Load…<input type="file" id="mapping" accept=".csv,.xlsx" hidden></label><button type="button" id="mapping-clear" class="textlink small" hidden>remove</button></span>
-          <span class="hint">Override specific fields with a custom mapping file.</span>
-          <span id="mapping-note" class="small" hidden></span></div>
-      </fieldset>
-    </div>
+    <p id="mapping-note" class="small center" hidden></p>
   </div>
-
 </section>
 
 <section class="step" id="step-results" hidden>
   <p class="results-bar"><span id="results-summary"></span>
     <span class="nav-right"><button type="button" id="rerun" class="textlink" title="Run every file again with the options under New run">Run again</button>
+    <span class="export-inputs">
+      <label><span>Contract ID</span> <input type="text" data-input="network.contract_id" placeholder="optional" aria-label="Contract ID, written into every row" title="Written into every row of the downloads" autocomplete="off" spellcheck="false"></label>
+      <label><span>Sender email</span> <input type="email" data-input="network.sender_email" placeholder="optional" aria-label="Sender email, written into every row" title="Who sent the roster; written into every row of the downloads" autocomplete="off" spellcheck="false"></label>
+    </span>
     <button type="button" id="download-all" class="primary" title="One workbook per sheet (Summary, Mapping, Data, Issues, Left out), in a zip with summary.xlsx when there are several">Download all</button></span></p>
   <p class="results-bar"><span class="view-switch" id="results-tabs"></span>
     <input type="search" id="results-filter" placeholder="Filter" aria-label="Filter rows" spellcheck="false"></p>
@@ -174,7 +152,12 @@
   <div class="scroll"><table id="download-sheets"></table></div>
   <h4>Data <span id="download-count" class="muted normal"></span></h4>
   <div class="scroll"><table id="download-preview"></table></div>
-  <p class="dialog-foot"><span id="download-note" class="muted small"></span><button type="button" id="download-confirm" class="primary">Download</button></p>
+  <p class="dialog-foot"><span id="download-note" class="muted small"></span>
+    <span class="export-inputs">
+      <label><span>Contract ID</span> <input type="text" data-input="network.contract_id" placeholder="optional" aria-label="Contract ID, written into every row" title="Written into every row of the download" autocomplete="off" spellcheck="false"></label>
+      <label><span>Sender email</span> <input type="email" data-input="network.sender_email" placeholder="optional" aria-label="Sender email, written into every row" title="Who sent the roster; written into every row of the download" autocomplete="off" spellcheck="false"></label>
+    </span>
+    <button type="button" id="download-confirm" class="primary">Download</button></p>
 </dialog>
 
 <!-- How it works: one dialog for every step; the current step's section is marked. -->
@@ -184,7 +167,9 @@
     <li>Drop xlsx, xls or csv files, or a folder of them. They're read in this browser; SSNs are removed as they're read.</li>
     <li>Every file is mapped, standardized and checked as the command line does, and Results shows what happened. Click a file to review it.</li>
     <li>The header row is found automatically. To change it, open <b>Raw data</b> on a file and click another row.</li>
-    <li>The action (ADD, UPDATE or TERM) comes from an action column, then the sheet name, then the file name.</li></ul></section>
+    <li>The action (ADD, UPDATE or TERM) comes from an action column, then the sheet name, then the file name. Set it under the drop to override that.</li>
+    <li><b>Look up</b>: what leaves this browser. NPPES gets each NPI, the Census geocoder each practice and billing address.</li>
+    <li>A default effective date (or any value for every row) is set on a file's <b>Mapping</b>: "…" on the field. A contract ID and the sender's email are asked for at <b>Download</b>.</li></ul></section>
   <section data-how="results"><h3>Results</h3><ul>
     <li>The same tables as the workbook the command line writes: each sheet's counts, the mapping (each column, its field and why), every issue, and every row left out and why.</li>
     <li>Download a workbook per sheet (Summary, Mapping, Data, Issues and Left out tabs), or all of them in a zip with <code>summary.xlsx</code>.</li></ul></section>
