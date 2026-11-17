@@ -4,6 +4,8 @@ import { read, utils } from 'xlsx';
 import { redactSsn } from './redact';
 import type { Row } from './types';
 
+export { toBatchSummary, toReport, type BatchEntry, type ReportOptions } from './report';
+
 export interface Sheet {
 	name: string;
 	rows: Row[];

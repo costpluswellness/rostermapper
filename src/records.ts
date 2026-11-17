@@ -30,7 +30,7 @@ export interface RosterRecord {
 
 export const EFFECTIVE_DATE = 'network.effective_date';
 
-/** True when an issue keeps the row out of the export: a missing or unreadable NPI, an NPI NPPES rejects, or an ADD with no practice address or TIN. */
+/** True when an issue keeps the row out of the export: a missing or unreadable NPI, an NPI NPPES rejects, or an ADD with no TIN. */
 export const isDropped = (record: { issues: readonly Issue[] }): boolean => record.issues.some((i) => i.drop);
 
 const NPI_FIELDS = ['provider.npi', 'billing.npi'];
@@ -38,16 +38,14 @@ const NPI_FIELDS = ['provider.npi', 'billing.npi'];
 /** The NPI every row must have: the provider's in an individual roster, the billing entity's in a facility roster. */
 export const primaryNpi = (category?: string): string => (category === 'facility' ? 'billing.npi' : 'provider.npi');
 
-// What an ADD row must have to be loaded: a location to list the provider at, and a TIN to pay.
-// UPDATE and TERM rows often leave them out, so only ADD rows are dropped without them.
-const ADD_NEEDS: [string, string][] = [
-	['practice.address_1', 'no practice address'],
-	['billing.tax_id', 'no billing TIN'],
-];
+// What an ADD row must have to be loaded: a TIN to pay. UPDATE and TERM rows often leave it out, so
+// only ADD rows are dropped without it. A row with no practice address is kept: it just has no
+// location (see entities.ts), and the blank address is flagged as missing.
+const ADD_NEEDS: [string, string][] = [['billing.tax_id', 'no billing TIN']];
 
 /**
  * Mark the issues that drop a row: the primary NPI is blank (or "N/A"), any NPI fails
- * standardization (not 10 digits, bad check digit), or an ADD has no practice address or no TIN.
+ * standardization (not 10 digits, bad check digit), or an ADD has no TIN.
  * Idempotent, so it can run again after a value is fixed by hand. Changes `record.issues` in place.
  */
 export function applyDropRules(record: { values: Readonly<Record<string, string>>; issues: Issue[] }, category?: string): void {

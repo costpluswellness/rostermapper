@@ -1,7 +1,7 @@
 export { ACTIONS, detectAction, namesTermination, parseAction, type Action, type ActionInput, type ActionSource, type DetectedAction } from './action';
 export { cleanDegree, cleanValue, isFreeText, isStandardized, standardRule, toTitleCase, type Cleaned } from './clean';
 export { groupEntities, type Entities, type Entity, type EntityKind } from './entities';
-export { outputFields, outputOrder, toCsv, toIssuesCsv } from './csv';
+export { leftOutRows, outputFields, outputOrder, recordRows, toCsv, toIssuesCsv } from './csv';
 export { detectCategory, FILE_ACTIONS, FILE_CATEGORIES, FILE_FIELDS, fileAction, fileValues, namesFacility, outputName, type CategoryInput, type CategorySource, type DetectedCategory, type FileAction, type FileCategory, type FileInfo } from './file';
 export { applyDropRules, buildRecords, isDropped, primaryNpi, type Issue, type RosterRecord } from './records';
 export { autoFixes, checkIssues, lookupTargets, nameKey, nameSearches, RANK, recordChecks, type LookupError, type Lookups, type NameQuery, type Sources } from './checks';

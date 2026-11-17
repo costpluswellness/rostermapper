@@ -5,3 +5,6 @@ dist/
 # Real roster files hold provider PII. Never commit them.
 samples/
 .claude/
+
+# Results written by the CLI (--no-ui): they hold provider PII too.
+output/
