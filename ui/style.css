@@ -316,7 +316,11 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 .rm ul.inline { list-style: none; margin: 2px 0 4px; padding: 0; }
 .entities li ul.fixes { display: none; }
 .entities li.selected ul.fixes { display: block; }
-#issues td > div + div { margin-top: 2px; }
+#issues .use { margin-left: 4px; }
+#issues :is(.ent-provider, .ent-practice, .ent-billing) { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-right: 4px; }
+#issues .ent-provider { color: var(--provider-ink); }
+#issues .ent-practice { color: var(--practice-ink); }
+#issues .ent-billing { color: var(--billing-ink); }
 .fieldset tr.flash td { background: var(--accent-soft); transition: background .3s; }
 
 /* The open file's steps, as tabs; × on a tab hides it, + brings hidden ones back */

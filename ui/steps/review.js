@@ -2,7 +2,7 @@ import { $, esc, plural } from '../lib.js';
 import { isDropped } from '../rostermapper.js';
 import { state } from '../state.js';
 import { go } from '../app.js';
-import { entityCard, onCardClick, problemItem } from './validate.js';
+import { entityCard, onCardClick } from './validate.js';
 // ─── 5 Review ───────────────────────────────────────────────
 // The file's landing view: providers, locations and billing as a table or a graph, each card carrying
 // its Standardize and Validate results (highlights, ✓ verified, problems with "Use"), and every issue
@@ -20,20 +20,53 @@ export function renderReview() {
   renderIssues();
 }
 
-// Each issue with what fixes it: a missing value → its field on Map; a value Standardize couldn't
-// clean → Standardize; a source's suggestion → "Use". Dropped rows first: they won't be exported.
+// Issues grouped by entity: the same issue on the same provider, location or billing entity shows
+// once, with its rows, and one fix for all of them: a missing value → its field on Map; a value
+// Standardize couldn't clean → Standardize; a source's suggestion → "Use", for every row of the entity.
+// Network and file fields have no entity: the same issue on them is grouped across rows.
+// Issues that drop rows first: those rows won't be exported.
+const KIND_OF = { provider: ['providers', 'Provider'], practice: ['locations', 'Location'], billing: ['billing', 'Billing'] };
+const ROWS_SHOWN = 8;
+function entityName(kind, e) {
+  const v = (f) => e?.values[f] ?? '';
+  if (kind === 'provider') return [v('provider.last_name'), v('provider.first_name')].filter(Boolean).join(', ') || (v('provider.npi') && `NPI ${v('provider.npi')}`);
+  if (kind === 'practice') return v('practice.location_name') || v('practice.dba') || [v('practice.address_1'), v('practice.city')].filter(Boolean).join(', ');
+  if (kind === 'billing') return v('billing.legal_name') || (v('billing.tax_id') && `TIN ${v('billing.tax_id')}`);
+  return '';
+}
 function renderIssues() {
-  const flagged = state.result.records.filter((r) => r.issues.length).sort((a, b) => isDropped(b) - isDropped(a));
-  const fix = (r, i) => {
+  // Row → entity index, per kind (every row, dropped ones too).
+  const index = {};
+  for (const [kind, [list]] of Object.entries(KIND_OF)) {
+    index[kind] = new Map();
+    state.entities[list].forEach((e, k) => e.rows.forEach((r) => index[kind].set(r, k)));
+  }
+  const groups = new Map();
+  for (const r of state.result.records) {
+    for (const i of r.issues) {
+      const kind = i.field.split('.')[0];
+      const k = index[kind]?.get(r.row);
+      const key = [kind, k ?? '', i.field, i.kind, i.message].join('|');
+      if (!groups.has(key)) groups.set(key, { kind, entity: k === undefined ? null : state.entities[KIND_OF[kind][0]][k], issue: i, first: r, rows: [] });
+      groups.get(key).rows.push(r.row);
+    }
+  }
+  const order = ['provider', 'practice', 'billing'];
+  const list = [...groups.values()].sort((a, b) => !!b.issue.drop - !!a.issue.drop || (order.indexOf(a.kind) + 4) % 4 - (order.indexOf(b.kind) + 4) % 4 || a.rows[0] - b.rows[0]);
+  const fix = ({ issue: i, first, rows }) => {
     if (i.kind === 'missing') return ` <button class="textlink small" data-map="${esc(i.field)}" title="See ${esc(i.field)} on Map">mapping</button>`;
     if (i.kind === 'format') return ' <button class="textlink small" data-goto="standardize" title="Fix it by hand on Standardize">edit</button>';
-    const c = state.checks.get(r.row)?.get(i.field)?.[0];
-    return c?.suggestion !== undefined ? `<ul class="inline">${problemItem(i.field, r.values[i.field], c, [r.row])}</ul>` : '';
+    const c = state.checks.get(first.row)?.get(i.field)?.[0];
+    if (c?.suggestion === undefined) return '';
+    const theirs = [c.suggestion, ...Object.values(c.also ?? {})].join(' / ');
+    return ` <button class="use" data-use="${esc(i.field)}" data-rows="${rows.join(',')}" data-value="${esc(c.suggestion)}" data-also="${esc(JSON.stringify(c.also ?? {}))}" data-source="${esc(c.source)}" title="${esc(`Use ${c.source}'s value for ${plural(rows.length, 'row')}`)}">Use “${esc(theirs)}”</button>`;
   };
-  $('issues').innerHTML = '<tr><th>Row</th><th>Provider</th><th>Issues</th></tr>' + (flagged.slice(0, 500).map((r) => {
-    const who = [r.values['provider.last_name'], r.values['provider.first_name']].filter(Boolean).join(', ') || (r.values['provider.npi'] ? `NPI ${r.values['provider.npi']}` : '');
-    const row = isDropped(r) ? `${r.row} <span class="drop" title="Not exported">dropped</span>` : r.row;
-    return `<tr><td class="muted nowrap">${row}</td><td class="nowrap">${esc(who)}</td><td>${r.issues.map((i) => `<div><span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.field)}${i.kind === 'missing' && !i.drop ? '' : `: ${esc(i.message)}`}${fix(r, i)}</div>`).join('')}</td></tr>`;
+  const rowsCell = (rows) => esc(rows.slice(0, ROWS_SHOWN).join(', ')) + (rows.length > ROWS_SHOWN ? ` <span class="muted" title="${esc(rows.join(', '))}">+${rows.length - ROWS_SHOWN}</span>` : '');
+  $('issues').innerHTML = '<tr><th>Entity</th><th>Issue</th><th>Rows</th></tr>' + (list.slice(0, 500).map((g) => {
+    const { kind, entity, issue: i, rows } = g;
+    const who = KIND_OF[kind] ? `<span class="ent-${kind}">${KIND_OF[kind][1]}</span> ${esc(entityName(kind, entity)) || '<span class="muted">blank</span>'}` : `<span class="muted">${esc(kind[0].toUpperCase() + kind.slice(1))}</span>`;
+    const drop = i.drop ? ' <span class="drop" title="These rows are not exported">dropped</span>' : '';
+    return `<tr><td>${who}</td><td><span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.field)}${i.kind === 'missing' && !i.drop ? '' : `: ${esc(i.message)}`}${fix(g)}</td><td class="muted nowrap">${rowsCell(rows)}${drop}</td></tr>`;
   }).join('') || '<tr><td colspan="3" class="muted">No issues.</td></tr>');
 }
 
