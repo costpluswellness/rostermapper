@@ -76,6 +76,8 @@
 .rm-rail li small.bad { color: var(--bad); }
 .rm-steps { counter-reset: step; }
 .rm-steps li { counter-increment: step; }
+.rm-steps li.soon { counter-increment: none; }
+.rm-steps li.soon a::before { content: ''; }
 .rm-steps a::before { content: counter(step); min-width: 1em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .rm-steps a small { margin-left: auto; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rm-steps a small.bad { color: var(--bad); }

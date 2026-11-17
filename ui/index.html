@@ -44,7 +44,7 @@
     <h4>Steps</h4>
     <ol id="steps" class="rm-steps">
       <li><a href="#" data-step="upload">Upload <small data-count="upload"></small></a></li>
-      <li><a aria-disabled="true" title="Not built yet">Transform <span class="rm-soon">soon</span></a></li>
+      <li class="soon"><a aria-disabled="true" title="Not built yet">Transform <span class="rm-soon">soon</span></a></li>
       <li><a href="#" data-step="map">Map <small data-count="map"></small></a></li>
       <li><a href="#" data-step="standardize">Standardize <small data-count="standardize"></small></a></li>
       <li><a href="#" data-step="validate">Validate <small data-count="validate"></small></a></li>
@@ -194,20 +194,20 @@
   <section data-how="results"><h3>Results</h3><ul>
     <li>The same tables as the workbook the command line writes: each sheet's counts, the mapping (each column, its field and why), every issue, and every row left out and why.</li>
     <li>Download a workbook per sheet (Summary, Mapping, Data, Issues and Left out tabs), or all of them in a zip with <code>summary.xlsx</code>.</li></ul></section>
-  <section data-how="transform"><h3>2 · AI transform <span class="rm-soon">soon</span></h3><ul>
+  <section data-how="transform"><h3>AI transform <span class="rm-soon">soon</span></h3><ul>
     <li>Some rosters don't fit one row per provider and location. AI can detect and make these transformations. Example transformations:
       <ul>
         <li>Wide to long: several locations in one row become one row per location.</li>
         <li>Extracting fields merged into another column, such as effective dates, addresses or names.</li>
         <li>Inferring fields from the file's metadata or structure, such as license state, primary location or show_in_dir.</li>
       </ul></li></ul></section>
-  <section data-how="map"><h3>3 · Map</h3><ul>
+  <section data-how="map"><h3>2 · Map</h3><ul>
     <li><b>Find the header row:</b> scan the first 30 rows and pick the one that looks most like labels, with data below it.</li>
     <li><b>Normalize headers:</b> lowercase them and remove underscores, so <code>PROV_FIRST_NM</code> → <code>prov first nm</code>, then apply any vocabulary transformations.</li>
     <li><b>Detect value types:</b> profile each column's values (digit checks and patterns) as NPI, TIN, date, phone, ZIP, state and so on.</li>
     <li><b>Match to fields:</b> compare each column's name with every field's aliases in <code>schema/fields.yaml</code> and give each field its best-scoring column. See the <a href="https://github.com/costpluswellness/rostermapper/blob/main/docs/canonical_fields.md" target="_blank" rel="noopener">data dictionary</a>.</li>
     <li>Click another column to change a field, or set one value for every row. Save your choices as a mapping file for the next roster from this sender.</li></ul></section>
-  <section data-how="standardize"><h3>4 · Standardize</h3><ul>
+  <section data-how="standardize"><h3>3 · Standardize</h3><ul>
     <li>Transform column values to standard formats:
       <ul>
         <li>Dates → <code>YYYY-MM-DD</code></li>
@@ -224,15 +224,15 @@
     <li>Values that can be told wrong on their own are flagged: an NPI that fails its check digit, a tax ID prefix the IRS doesn't assign, a taxonomy code not in the NUCC list.</li>
     <li>Values that can't be cleaned are kept as written and flagged.</li>
     <li>Hover a name, address or flagged value and click ✎ to fix it by hand.</li></ul></section>
-  <section data-how="validate"><h3>5 · Validate</h3><ul>
+  <section data-how="validate"><h3>4 · Validate</h3><ul>
     <li>Compares the roster with outside sources, as turned on under Upload: NPIs are looked up in NPPES and addresses in the Census geocoder.</li>
     <li>Census results are applied by default: city, state and ZIP, and a suite or building name moved to line 2. So is NPPES's legal name for a billing NPI. Open "changes from …" on a card to see them; "undo" puts yours back.</li>
     <li>Other NPPES results are suggestions: accept one with "Use"; "undo" puts yours back.</li>
     <li>A provider NPI that NPPES lists under someone else drops the row. When NPPES has the provider under another NPI, "Use" puts it in and keeps the row.</li></ul></section>
-  <section data-how="review"><h3>6 · Review</h3><ul>
+  <section data-how="review"><h3>5 · Review</h3><ul>
     <li>Visualize relationships by entity: which unique NPIs, tax IDs, billing entities and network records are being entered.</li>
     <li>See which providers work at which locations and bill through which entities, and every issue by row.</li></ul></section>
-  <section data-how="export"><h3>7 · Export</h3><ul>
+  <section data-how="export"><h3>6 · Export</h3><ul>
     <li>Download a workbook (Summary, Mapping, Data, Issues and Left out tabs), or the records as CSV or JSON.</li></ul></section>
   <form method="dialog"><button>Close</button></form>
 </dialog>

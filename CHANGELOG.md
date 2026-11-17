@@ -2,14 +2,21 @@
 
 ## Unreleased
 
+- One pipeline for the CLI, the UI and the library: `runSheets` runs map, standardize, validate and review the same way everywhere
+- `--steps` runs one step at a time and prints each step's result (read, map, standardize, validate, review, export), waiting for Enter between steps in a terminal
+- `rostermapper/node`: `mapFile`, `mapFiles` and `writeOutput`, what the CLI runs, for use without the CLI or the UI
+- UI: a workbench, with the files and the open file's steps (each with a count) in a rail, and a status bar with progress and Back/Next. **Run** (was Quick) runs every file as the CLI does; Results shows the workbook's own tables (Sheets, Mapping, Issues, Left out) with a filter
+- `--ui` opens the UI even when output is piped; `BROWSER=none` serves it without opening a browser
+- Source grouped by step (`src/read`, `map`, `standardize`, `validate`, `review`, `export`); `site/` is now `ui/`, `dev/rmap` is `scripts/rmap`
+- Tests (`pnpm test`) on a synthetic roster; README trimmed to a flowchart and links, details in `docs/`
 - Rows that can't move forward are dropped from the export and listed as issues: no NPI (blank or N/A), an NPI that fails standardization, or one NPPES doesn't have, has deactivated, lists as an organization, or lists under a different first and last name
 - NPPES warnings become issues: one name or the credential far from NPPES's, first and last name swapped, a source that didn't answer
 - `--no-ui` runs every step in the terminal, NPPES and Census lookups included (`--keep-dropped` keeps dropped rows in the output)
 - The CLI runs in the terminal by default (`--ui` opens the browser UI; `--no-ui` is still accepted) and saves one workbook per sheet to `./output/`, named like the UI's downloads (`RM_<file>_<sheet>.xlsx`, with a timestamp when the name is taken)
-- UI: drop several files or a folder ("Open a folder"); they're listed on the left. **Quick**, the default, runs every step on every file and shows Results: each sheet's counts, every row left out and why, every issue, a workbook per sheet and "Download all" (zip with `summary.xlsx`). **Step by step** opens each file at Upload; "Run all steps" finishes a file and goes to Export, which now downloads a workbook too
+- UI: drop several files or a folder ("Open a folder"); they're listed on the left. **Quick** (now **Run**), the default, runs every step on every file and shows Results: each sheet's counts, every row left out and why, every issue, a workbook per sheet and "Download all" (zip with `summary.xlsx`). **Step by step** opens each file at Upload; "Run all steps" finishes a file and goes to Export, which now downloads a workbook too
 - Bulk: `rostermapper inbox/` (or several files) maps every roster into `output/<date-time>/`, one workbook per sheet, plus `summary.xlsx` listing each sheet and each file that failed
 - `-o result.xlsx` writes the whole result as one workbook: Summary, Mapping (each column and its field, or why not), Data, Issues (one line per problem) and Left out; the terminal then shows a short summary instead of the full report
-- `dev/rmap` (and `pnpm cli`) run the CLI from source with no build; `dev/rmap` skips pnpm too
+- `scripts/rmap` (and `pnpm cli`) run the CLI from source with no build; `scripts/rmap` skips pnpm too
 - NPPES and Census answers are kept between runs (`~/.cache/rostermapper/lookups.json`; `--no-cache` to skip)
 - An issues file lists every row left out of the output and why (`*_issues.csv`, "Download issues" on Export)
 - NPPES and Census lookups retry when rate-limited

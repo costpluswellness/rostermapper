@@ -1,8 +1,20 @@
 {
 	"name": "rostermapper",
 	"version": "1.0.0-beta",
-	"description": "Map any healthcare provider roster file to a standard schema.",
-	"keywords": ["healthcare", "provider", "roster", "directory", "npi", "nppes", "nucc", "xlsx", "csv"],
+	"description": "Map any healthcare provider roster file (xlsx, xls, csv) to a standard schema: map, standardize, validate against NPPES and the Census geocoder, and export.",
+	"keywords": [
+		"healthcare",
+		"provider",
+		"roster",
+		"directory",
+		"npi",
+		"nppes",
+		"nucc",
+		"census",
+		"xlsx",
+		"csv",
+		"cli"
+	],
 	"license": "MIT",
 	"author": "Ramzy Alamine",
 	"repository": {
@@ -23,7 +35,12 @@
 		"./workbook": {
 			"types": "./dist/workbook.d.ts",
 			"default": "./dist/workbook.js"
-		}
+		},
+		"./node": {
+			"types": "./dist/node.d.ts",
+			"default": "./dist/node.js"
+		},
+		"./package.json": "./package.json"
 	},
 	"types": "./dist/index.d.ts",
 	"files": [
@@ -33,11 +50,12 @@
 	"scripts": {
 		"cli": "tsx src/cli/bin.ts",
 		"build": "rm -rf dist && tsup",
+		"test": "node --import tsx --test test/*.test.ts",
+		"typecheck": "tsc --noEmit",
 		"schema": "node scripts/build-schema.ts",
 		"schema:check": "node scripts/build-schema.ts --check",
 		"nucc": "node scripts/build-nucc.ts",
-		"typecheck": "tsc --noEmit",
-		"check": "pnpm schema:check && pnpm typecheck && pnpm build",
+		"check": "pnpm schema:check && pnpm typecheck && pnpm test && pnpm build",
 		"prepublishOnly": "pnpm check"
 	},
 	"engines": {

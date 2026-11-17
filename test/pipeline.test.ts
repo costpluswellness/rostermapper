@@ -1,0 +1,110 @@
+// The pipeline, the CLI and the Node API on a synthetic roster (test/fixtures/roster.csv: made-up
+// providers, valid-looking NPIs). No network: lookups are faked.
+import assert from 'node:assert/strict';
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { test } from 'node:test';
+import { isDropped, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
+import { readWorkbook } from '../src/workbook';
+import { mapFiles } from '../src/node';
+import { main, type Io } from '../src/cli/cli';
+
+const FIXTURE = new URL('fixtures/roster.csv', import.meta.url).pathname;
+const sheets = () => readWorkbook(readFileSync(FIXTURE));
+
+// NPPES knows every fixture NPI as an active provider (the group NPI as an organization), except 1999990033.
+const people: Record<string, [string, string]> = { '1999990009': ['JANE', 'DOE'], '1999990017': ['JOHN', 'SMITH'], '1999990025': ['ANA', 'LOPEZ'] };
+const fakeLookup: LookupFns = {
+	npi: async (npi) => {
+		if (npi === '1999990058') return { number: npi, enumeration_type: 'NPI-2', basic: { status: 'A', organization_name: 'EXAMPLE FAMILY CLINIC PLLC' } } satisfies NppesRecord;
+		const p = people[npi];
+		return p ? { number: npi, enumeration_type: 'NPI-1', basic: { status: 'A', first_name: p[0], last_name: p[1] } } : null;
+	},
+	address: async (line): Promise<CensusMatch | null> =>
+		line.startsWith('100 Main St') ? { matchedAddress: '100 MAIN ST, AUSTIN, TX, 78701', addressComponents: { city: 'AUSTIN', state: 'TX', zip: '78701' } } : null,
+	byName: async () => [],
+};
+
+const quiet = (): Io & { text: () => string } => {
+	let text = '';
+	const sink = { write: (t: string) => (text += t) };
+	return { out: sink, err: sink, lookup: fakeLookup, progress: false, text: () => text };
+};
+
+test('read: finds the header under a title row and removes SSNs', () => {
+	const [sheet] = sheets();
+	assert.equal(sheet!.redacted.columns.length, 1);
+	assert.ok(!JSON.stringify(sheet!.rows).includes('123-45-6789'));
+});
+
+test('map and standardize: fields, cleaned values, dropped rows', async () => {
+	const [r] = await runSheets('roster.csv', sheets());
+	assert.ok(r);
+	assert.equal(r.headerRow, 1);
+	assert.equal(r.action.action, 'MIXED');
+	assert.equal(r.category.category, 'individual');
+	assert.equal(r.mapping['provider.npi']?.column, 4);
+	assert.equal(r.mapping['billing.legal_name']?.column, 9);
+	const first = r.records[0]!.values;
+	assert.equal(first['provider.first_name'], 'Jane');
+	assert.equal(first['provider.degree'], 'MD');
+	assert.equal(first['billing.tax_id'], '12-3456789');
+	assert.equal(first['practice.state'], 'TX');
+	assert.equal(first['practice.phone'], '512-555-0100');
+	assert.equal(r.records[1]!.values['network.effective_date'], '2026-12-01');
+	assert.equal(r.records[6]!.values['practice.zip'], '08701');
+	// Left out: an ADD with no TIN, a TERM with no NPI, an NPI that fails its check digit.
+	assert.deepEqual(r.records.filter(isDropped).map((x) => x.row), [6, 7, 8]);
+});
+
+test('validate: lookups drop unknown NPIs and apply trusted fixes', async () => {
+	const [r] = await runSheets('roster.csv', sheets(), { lookup: fakeLookup });
+	const dropped = r!.records.filter(isDropped).map((x) => x.row);
+	assert.deepEqual(dropped, [6, 7, 8, 9]); // 1999990033 isn't in (fake) NPPES
+	assert.equal(r!.records[0]!.values['billing.legal_name'], 'Example Family Clinic PLLC'); // NPPES's legal name, applied
+});
+
+test('steps: onStep sees every step in order, and can stop the run', async () => {
+	const seen: StepEvent['step'][] = [];
+	await runSheets('roster.csv', sheets(), { lookup: fakeLookup, onStep: (e) => void seen.push(e.step) });
+	assert.deepEqual(seen, ['map', 'standardize', 'validate', 'review']);
+	await assert.rejects(runSheets('roster.csv', sheets(), { onStep: (e) => e.step !== 'standardize' }), StoppedEarly);
+});
+
+test('report tables: the workbook tabs', async () => {
+	const results = await runSheets('roster.csv', sheets());
+	const tables = reportTables('roster.csv', results);
+	assert.deepEqual(Object.keys(tables), ['Summary', 'Mapping', 'Data', 'Issues', 'Left out']);
+	assert.equal(tables.Data.length, 1 + 4); // header + rows moved forward
+	assert.equal(tables['Left out'].length, 1 + 3);
+});
+
+test('CLI: writes a workbook per sheet to the output folder', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'rm-'));
+	const io = quiet();
+	assert.equal(await main([FIXTURE, '-o', dir + '/'], io), 0);
+	assert.deepEqual(readdirSync(dir), ['RM_roster_Sheet1.xlsx']);
+	assert.match(io.text(), /Sheet1 · MIXED · individual/);
+});
+
+test('CLI: --steps prints each step', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'rm-'));
+	const io = quiet();
+	assert.equal(await main([FIXTURE, '--steps', '-o', dir + '/'], io), 0);
+	for (const step of STEPS) assert.match(io.text(), new RegExp(`━━ ${step} ·`));
+});
+
+test('CLI: -o file.csv writes the records and the rows left out', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'rm-'));
+	assert.equal(await main([FIXTURE, '--no-nppes', '--no-census', '-o', join(dir, 'out.csv')], quiet()), 0);
+	assert.equal(readFileSync(join(dir, 'out.csv'), 'utf8').trim().split('\r\n').length, 1 + 4);
+	assert.equal(readFileSync(join(dir, 'out_issues.csv'), 'utf8').trim().split('\r\n').length, 1 + 3);
+});
+
+test('node: mapFiles maps a folder into a run folder with summary.xlsx', async () => {
+	const out = mkdtempSync(join(tmpdir(), 'rm-'));
+	const { dir, entries } = await mapFiles([new URL('fixtures', import.meta.url).pathname], { output: out, lookup: false });
+	assert.deepEqual(readdirSync(dir).sort(), ['RM_roster_Sheet1.xlsx', 'summary.xlsx']);
+	assert.equal(entries[0]?.movedForward, 4);
+});
