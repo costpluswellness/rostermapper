@@ -3,7 +3,7 @@ import { counts, isDropped, outputName, toReport } from '../rostermapper.js';
 import { saveAllowed, state } from '../state.js';
 import { checkedWith, openMap, pickSheet, remember, run, sheetMemo } from '../app.js';
 import { isIgnored, toggleIgnored } from '../results.js';
-import { editControl, entityCard, onCardClick, renderChecksBar } from './validate.js';
+import { editControl, entityCard, onCardClick, renderChecksBar, runChecks } from './validate.js';
 // ─── Review: a file's one page ──────────────────────────────
 // Its sheets along the top; providers, locations and billing as a graph or a table, each card carrying
 // its checks (✓, problems highlighted, "Use"); every issue below with its fix; Mapping and Raw data as
@@ -12,6 +12,7 @@ export const KIND_LABEL = { missing: 'missing', format: 'invalid', invalid: 'per
 const NONE = { provider: 'No provider', practice: 'No practice location', billing: 'No billing' };
 
 export function renderReview() {
+  renderHead();
   renderSheetTabs();
   renderChecksBar();
   const graph = state.reviewView === 'graph';
@@ -23,6 +24,23 @@ export function renderReview() {
   if (state.editing) { const input = $('step-review').querySelector('[data-editing]'); input?.focus(); input?.select(); }
 }
 
+// A sheet's result: the open one live, another as it was left, or as the run made it.
+const sheetResult = (name) => (name === state.sheet ? state.result : sheetMemo.get(`${state.name}|${name}`)?.result ?? state.files[state.current]?.results?.find((r) => r.sheet === name));
+
+// The file's name and totals across its sheets not ignored, then the open sheet's figures.
+function renderHead() {
+  $('file-title').textContent = state.name;
+  const kept = state.sheets.filter(({ name }) => !isIgnored(state.name, name));
+  const all = counts(kept.flatMap(({ name }) => sheetResult(name)?.records ?? []));
+  $('file-totals').textContent = [state.sheets.length > 1 && `${plural(kept.length, 'sheet')}${kept.length < state.sheets.length ? ` of ${state.sheets.length}` : ''}`,
+    plural(all.rows, 'row'), `${all.movedForward} moved forward`, `${all.leftOut} left out`, `${all.withIssues} with issues`].filter(Boolean).join(' · ');
+  const c = counts(state.result.records);
+  const stat = (label, n, cls = '') => `<div${cls ? ` class="${cls}"` : ''}><dt>${label}</dt><dd>${n}</dd></div>`;
+  $('sheet-stats').innerHTML = stat('Rows', c.rows) + stat('Moved forward', c.movedForward) + stat('Left out', c.leftOut, c.leftOut ? 'bad' : '') +
+    stat('With issues', c.withIssues, c.withIssues ? 'warn' : '') + stat('Providers', state.kept.providers.length, 'provider') +
+    stat('Locations', state.kept.locations.length, 'practice') + stat('Billing', state.kept.billing.length, 'billing');
+}
+
 // The file's sheets as tabs, each with its row count; × ignores one (left out of Results and the download), ↺ brings it back.
 function renderSheetTabs() {
   const tabs = $('sheet-tabs');
@@ -30,7 +48,7 @@ function renderSheetTabs() {
   if (tabs.hidden) return;
   tabs.innerHTML = state.sheets.map(({ name }) => {
     const off = isIgnored(state.name, name);
-    const result = name === state.sheet ? state.result : sheetMemo.get(`${state.name}|${name}`)?.result ?? state.files[state.current]?.results?.find((r) => r.sheet === name);
+    const result = sheetResult(name);
     const n = result ? counts(result.records).rows : '';
     return `<button type="button" data-sheet="${esc(name)}" class="${name === state.sheet ? 'on' : ''}${off ? ' ignored' : ''}"${off ? ' title="Ignored: left out of Results and the download"' : ''}>${esc(name)}` +
       `${n !== '' ? ` <small class="muted">${n}</small>` : ''}<span class="x" data-ignore="${esc(name)}" title="${off ? 'Bring this sheet back' : 'Ignore this sheet: leave it out of Results and the download'}">${off ? '↺' : '×'}</span></button>`;
@@ -129,6 +147,11 @@ $('step-review').addEventListener('click', (e) => {
   if (m) return openMap(m.dataset.map);
   const ed = e.target.closest('[data-edit]');
   if (ed) { e.stopPropagation(); state.editing = ed.dataset.edit; return renderReview(); }
+  const ea = e.target.closest('[data-edit-address]');
+  if (ea) { e.stopPropagation(); state.editingAddress = ea.dataset.editAddress; renderReview(); return void $('step-review').querySelector('[data-address-form] input')?.focus(); }
+  if (e.target.closest('[data-cancel-address]')) { state.editingAddress = null; return renderReview(); }
+  const sa = e.target.closest('[data-save-address]');
+  if (sa) return saveAddress(sa.closest('[data-address-form]'));
   const show = e.target.closest('[data-show]');
   if (show) { e.preventDefault(); const [kind, row] = show.dataset.show.split('|'); return showCard(kind, +row); }
   const a = e.target.closest('[data-allow], [data-disallow]');
@@ -145,6 +168,9 @@ $('step-review').addEventListener('click', (e) => {
 // An issue's value typed in place: Enter saves it for the issue's rows (cleaned and checked like any
 // other value), Escape or leaving the box without a change cancels.
 $('step-review').addEventListener('keydown', (e) => {
+  const form = e.target.closest('[data-address-form]');
+  if (form && e.key === 'Enter') return saveAddress(form);
+  if (form && e.key === 'Escape') { state.editingAddress = null; return renderReview(); }
   const input = e.target.closest('[data-editing]');
   if (!input) return;
   if (e.key === 'Escape') { state.editing = null; return renderReview(); }
@@ -155,18 +181,33 @@ function saveEdit(input) {
   const [f, rows] = input.dataset.editing.split('|');
   state.editing = null;
   if (input.value === input.defaultValue) return renderReview(); // unchanged: nothing to save
-  const typed = input.value.trim();
-  const list = rows.split(',').map(Number);
-  for (const row of list) {
-    const raw = state.byRow.get(row)?.raw.values[f] ?? '';
+  applyTyped(rows.split(',').map(Number), { [f]: input.value.trim() });
+}
+
+// A card's address, every part at once: the parts changed are typed over the rows' values, and the
+// new address is looked up with the Census geocoder.
+function saveAddress(form) {
+  const typed = {};
+  for (const input of form.querySelectorAll('[data-addr]')) if (input.value.trim() !== input.dataset.was) typed[input.dataset.addr] = input.value.trim();
+  state.editingAddress = null;
+  if (!Object.keys(typed).length) return renderReview();
+  applyTyped(form.dataset.addressForm.split('|')[1].split(',').map(Number), typed);
+  if (state.sources.census) runChecks(['census']);
+}
+
+// Values typed for some rows: they replace the cleaned ones (cleaned and checked like any other).
+// A suggestion accepted for the field (a Census city, say) is undone, so what was typed wins.
+function applyTyped(rows, typed) {
+  for (const row of rows) {
     if (!state.fixes.has(row)) state.fixes.set(row, new Map());
-    // Typing the value back as written drops the fix, so cleaning applies again.
-    if (typed === raw) state.fixes.get(row).delete(f); else state.fixes.get(row).set(f, typed);
+    for (const [f, value] of Object.entries(typed)) {
+      const raw = state.byRow.get(row)?.raw.values[f] ?? '';
+      // Typing the value back as written drops the fix, so cleaning applies again.
+      if (value === raw) state.fixes.get(row).delete(f); else state.fixes.get(row).set(f, value);
+      if (state.accepted.get(row)?.delete(f)) state.declined.add(`${row}|${f}`);
+    }
   }
-  // Typed on a pinned card: keep it pinned (its place in the list may move).
-  const pinned = state.selected;
-  run();
-  if (pinned) showCard(pinned.kind, list[0], { scroll: false });
+  run(); // a pinned card stays pinned (see run)
 }
 
 // The card holding a row, in the graph: pinned (its problems open, its links lit) and scrolled into view.
@@ -256,7 +297,7 @@ function renderPreview() {
   $('graph').querySelectorAll('li[data-kind]').forEach((li) => {
     const kind = li.dataset.kind;
     const i = +li.dataset.i;
-    li.onclick = (ev) => { if (!ev.target.closest('a, button, input')) select(kind, i); };
+    li.onclick = (ev) => { if (!ev.target.closest('a, button, input, label')) select(kind, i); };
     li.onmouseenter = () => { state.hovered = { kind, i }; highlight(); };
     li.onmouseleave = () => { state.hovered = null; highlight(); };
   });

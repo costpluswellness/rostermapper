@@ -7,8 +7,8 @@
 // the checks on each card, its issues with their fixes, and Mapping and Raw data as dialogs. Every change
 // is recalculated live (automap on the open sheet). Download saves one workbook for the file.
 // Files are read in this browser; only NPIs and addresses go out, to NPPES and the Census geocoder.
-import { automap, detectHeaderRow, groupEntities, isDropped, parseMapping, readWorkbook, runSheets, counts } from './rostermapper.js';
-import { $, LOOKUP, esc, oneLine, plural } from './lib.js';
+import { automap, detectHeaderRow, groupEntities, isDropped, parseMapping, readWorkbook, runSheets } from './rostermapper.js';
+import { $, LOOKUP, esc, oneLine } from './lib.js';
 import { SOURCES_KEY, allowedOption, state } from './state.js';
 import { renderFiles, renderResults } from './results.js';
 import { renderUpload } from './steps/upload.js';
@@ -48,7 +48,6 @@ export function go(step) {
   if (step === 'review' && !state.result) step = 'upload';
   state.step = step;
   for (const s of VIEWS) $(`step-${s}`).hidden = s !== step;
-  $('filename').hidden = step !== 'review';
   $('rail-new').toggleAttribute('aria-current', step === 'upload');
   $('rail-results').toggleAttribute('aria-current', step === 'results');
   render();
@@ -81,10 +80,7 @@ export function status(text) {
 function renderStatus() {
   let text = state.progress;
   if (!text && state.step === 'results' && state.files.length) text = `Lookups: ${checkedWith()}`;
-  else if (!text && state.step === 'review' && state.result) {
-    const c = counts(state.result.records);
-    text = `${state.sheet} · ${plural(c.rows, 'row')} · ${c.movedForward} moved forward · ${c.leftOut} left out · ${c.withIssues} with issues`;
-  }
+  // On Review the sheet's figures are at the top of the page: the bar only shows progress.
   $('status').textContent = text;
 }
 
@@ -141,7 +137,6 @@ function loadSheets(name, sheets, sheet, headerRow) {
   state.name = name;
   state.sheets = sheets.filter((s) => s.rows.length);
   document.title = `${name} · Roster Mapper`;
-  $('filename').textContent = name;
   const first = state.sheets.find((s) => s.name === sheet) ?? state.sheets[0];
   if (!first) { state.result = null; state.rows = []; return go('upload'); }
   pickSheet(first.name, headerRow);
@@ -202,9 +197,14 @@ export function run() {
   applyFixes();
   applyValidation(); // accepted suggestions, and failures from Validate's checks, as issues
   state.byRow = new Map(state.result.records.map((r, i) => [r.row, { clean: r, get raw() { return rawRecords()[i]; } }]));
+  // The pinned card, by its first row, so it stays pinned when its place in the list moves.
+  const LIST = { provider: 'providers', practice: 'locations', billing: 'billing' };
+  const pin = state.selected && { kind: state.selected.kind, row: state.kept?.[LIST[state.selected.kind]][state.selected.i]?.rows[0] };
   state.entities = groupEntities(state.result.records); // every row, so a dropped one can be fixed
   state.kept = groupEntities(state.result.records.filter((r) => !isDropped(r))); // Review: only rows that move forward
-  state.selected = state.hovered = null;
+  const i = pin ? state.kept[LIST[pin.kind]].findIndex((e) => e.rows.includes(pin.row)) : -1;
+  state.selected = i >= 0 ? { kind: pin.kind, i } : null;
+  state.hovered = null;
   go(state.step);
 }
 

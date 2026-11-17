@@ -150,12 +150,33 @@ export function entityCard(kind, entity) {
     if (i.acc) return `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(i.value)} <span class="muted">accepted</span> <button class="textlink small" data-undo="${i.f}" data-rows="${key}">undo</button></li>`;
     return problemItem(i.f, i.value, i.check, entity.rows);
   }).join('') + formats.map(({ f, issue }) => `<li class="fail"><span class="muted">${LABEL(f)}:</span> ${esc(issue.message)} ${editControl(f, entity.rows, values[f], 'edit')}</li>`).join('') +
-    [...blanks.keys()].map((f) => `<li class="warn"><span class="muted">${LABEL(f)}:</span> missing ${editControl(f, entity.rows, '', 'add')}</li>`).join('');
+    [...blanks.keys()].filter((f) => !ADDRESS.some((a) => f === `${kind}.${a}`)).map((f) => `<li class="warn"><span class="muted">${LABEL(f)}:</span> missing ${editControl(f, entity.rows, '', 'add')}</li>`).join('') +
+    addressFix(kind, entity, values, marks, blanks);
   const lines = card.lines(values).map((l) => renderLine(l, values, marks)).filter(Boolean);
   const head = renderLine(card.title(values), values, marks) || lines.shift() || '';
   const missing = card.missing(values).filter(Boolean);
   if (missing.length) lines.push(none(missing.join(' · ')));
   return { mark, head, lines, fixes, status };
+}
+
+// A practice or billing address with a problem in any part (missing, not cleaned, flagged by Census):
+// "edit address" opens every part of it on the card, to fix together (see Review's saveAddress).
+const ADDRESS = ['address_1', 'address_2', 'city', 'state', 'zip'];
+const ADDRESS_LABEL = { address_1: 'Line 1', address_2: 'Line 2', city: 'City', state: 'State', zip: 'ZIP' };
+function addressFix(kind, entity, values, marks, blanks) {
+  if (kind !== 'practice' && kind !== 'billing') return '';
+  const fields = ADDRESS.map((a) => `${kind}.${a}`);
+  const wrong = fields.filter((f) => blanks.has(f) && f !== `${kind}.address_2` || ['fail', 'warn', 'suggest'].includes(marks.get(f)?.status));
+  const key = `${kind}|${entity.rows.join(',')}`;
+  if (!wrong.length && state.editingAddress !== key) return '';
+  if (state.editingAddress !== key) {
+    // Missing parts are named here; a flagged one is already explained above, by its check.
+    const missing = wrong.filter((f) => blanks.has(f)).map((f) => ADDRESS_LABEL[f.split('.')[1]]);
+    return `<li class="warn">${missing.length ? `<span class="muted">Address:</span> ${esc(missing.join(', '))} missing ` : ''}<button class="textlink small" data-edit-address="${key}">edit address</button></li>`;
+  }
+  return `<li class="addr-form" data-address-form="${key}"><div class="addr-grid">` +
+    fields.map((f) => `<label class="${f.split('.')[1]}"><span>${ADDRESS_LABEL[f.split('.')[1]]}</span><input data-addr="${f}" value="${esc(values[f])}" data-was="${esc(values[f])}" spellcheck="false"${wrong.includes(f) ? ' class="wrong"' : ''}></label>`).join('') +
+    `</div><button class="use" data-save-address>Save</button> <button class="textlink small" data-cancel-address>Cancel</button></li>`;
 }
 
 /** "edit" (or "add") for a value of some rows, or its input while it's being typed (see Review's saveEdit). */

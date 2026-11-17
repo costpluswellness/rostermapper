@@ -23,9 +23,15 @@ export function renderFiles() {
     return `${c.movedForward} in · ${c.leftOut} out`;
   };
   $('rail-files').hidden = !state.files.length;
+  $('file-count').textContent = state.files.length > 1 ? state.files.length : '';
+  // One line per file: its name (in full on hover), and under it how it went: rows in, rows out (in red when any).
+  const line = (f) => {
+    if (f.status !== 'done') return `<small class="${f.status === 'error' ? 'bad' : ''}">${esc(status(f))}</small>`;
+    const c = counts(kept(f).flatMap((r) => r.records));
+    return `<small>${c.movedForward} in · <span class="${c.leftOut ? 'bad' : ''}">${c.leftOut} out</span>${c.withIssues ? ` · <span class="warn">${c.withIssues} with issues</span>` : ''}</small>`;
+  };
   $('file-list').innerHTML = state.files.map((f, i) =>
-    `<li><a href="#" data-file="${i}"${state.step === 'review' && i === state.current ? ' aria-current="true"' : ''} title="${esc(f.name)}">${esc(f.name)}</a>` +
-    `<small class="${f.status === 'error' ? 'bad' : ''}">${esc(status(f))}</small></li>`).join('');
+    `<li><a href="#" data-file="${i}"${state.step === 'review' && i === state.current ? ' aria-current="true"' : ''} title="${esc(f.name)}"><span class="name">${esc(f.name)}</span>${line(f)}</a></li>`).join('');
 }
 $('file-list').onclick = (e) => {
   const a = e.target.closest('[data-file]');

@@ -31,7 +31,8 @@ export const state = {
   files: [], // the files dropped together: { name, read() → sheets, status: waiting|running|done|error, results?, error? }
   current: -1, // the file open at Review, by index in `files`
   ignored: new Set(), // "file|sheet" of sheets left out of Results and the downloads (× on a sheet tab)
-  editing: null, // Review: "field|rows" of the issue whose value is being typed
+  editing: null, // Review: "field|rows" of the value being typed (an issue's or a card's)
+  editingAddress: null, // Review: "kind|rows" of the card whose address is open to edit
   progress: '', // the status bar: "Checking 12 of 40…" while lookups run
   allowed: loadAllowed(), // field → values the user allowed as written (provider types like AHP): not flagged
 };
