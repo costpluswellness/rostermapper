@@ -21,7 +21,7 @@ export interface Check {
 	also?: Record<string, string>;
 	/** The row can't move forward (wrong or unusable NPI). Only with status "fail". */
 	drop?: true;
-	/** Apply the suggestion without asking; the user can undo it (Census addresses, NPPES legal names). */
+	/** Apply the suggestion without asking; the user can undo it (Census addresses, NPPES legal names, a blank taxonomy). */
 	auto?: true;
 	/** Shown on the card, but not an issue: the source couldn't confirm, which isn't a fault in the row. */
 	quiet?: true;
@@ -191,6 +191,11 @@ export function nppesProviderChecks(values: Values, record: NppesRecord | null, 
 	const primary = taxonomies.find((t) => t.primary) ?? taxonomies[0];
 	for (const field of ['provider.taxonomy_1', 'provider.taxonomy_2']) {
 		const ours = values[field];
+		// No taxonomy in the roster: NPPES's primary fills it, applied without asking (it can be undone).
+		if (!ours && field === 'provider.taxonomy_1' && primary) {
+			checks.push({ field, status: 'suggest', source: 'NPPES', auto: true, detail: `Blank in the roster; NPPES lists ${primary.code} (${primary.desc ?? ''})${primary.primary ? ' as primary' : ''}`, suggestion: primary.code });
+			continue;
+		}
 		if (!ours || !taxonomies.length) continue;
 		const hit = taxonomies.find((t) => t.code === ours);
 		// Taxonomy 1: NPPES's primary. Taxonomy 2: another of its taxonomies the row doesn't have.

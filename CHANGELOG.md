@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A blank taxonomy is filled with the provider's primary taxonomy from NPPES, applied like NPPES legal names and Census addresses (undo it in the UI)
 - `--allow field=values` (and the `allowed` option of `automap` and `runSheets`): keep a sender's own codes as written instead of flagging them, for fields with a fixed list, like `--allow provider_type=AHP,PHYS`
 - UI: a file opens at Review, its cards carrying Standardize's and Validate's results (✓ when checked, problems highlighted, NPPES registry link on each NPI, "No taxonomy" and the like); issues grouped by entity, each with its fix (Map, Standardize, "Use" for every row of the entity, "Allow" for a value outside a fixed list); the steps are tabs, and × hides one
 - One pipeline for the CLI, the UI and the library: `runSheets` runs map, standardize, validate and review the same way everywhere

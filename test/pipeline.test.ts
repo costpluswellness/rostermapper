@@ -5,7 +5,7 @@ import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { automap, isDropped, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
+import { automap, isDropped, nppesProviderChecks, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
 import { readWorkbook } from '../src/workbook';
 import { mapFiles } from '../src/node';
 import { main, type Io } from '../src/cli/cli';
@@ -63,6 +63,17 @@ test('validate: lookups drop unknown NPIs and apply trusted fixes', async () => 
 	const dropped = r!.records.filter(isDropped).map((x) => x.row);
 	assert.deepEqual(dropped, [6, 7, 8, 9]); // 1999990033 isn't in (fake) NPPES
 	assert.equal(r!.records[0]!.values['billing.legal_name'], 'Example Family Clinic PLLC'); // NPPES's legal name, applied
+});
+
+test('validate: a blank taxonomy is filled with NPPES\'s primary; a roster\'s taxonomy is kept', () => {
+	const record: NppesRecord = { number: '1999990009', enumeration_type: 'NPI-1', basic: { status: 'A', first_name: 'JANE', last_name: 'DOE' },
+		taxonomies: [{ code: '207R00000X', desc: 'Internal Medicine' }, { code: '207Q00000X', desc: 'Family Medicine', primary: true }] };
+	const values = { 'provider.npi': '1999990009', 'provider.first_name': 'Jane', 'provider.last_name': 'Doe' };
+	const blank = nppesProviderChecks(values, record).find((c) => c.field === 'provider.taxonomy_1');
+	assert.equal(blank?.suggestion, '207Q00000X');
+	assert.equal(blank?.auto, true);
+	const ours = nppesProviderChecks({ ...values, 'provider.taxonomy_1': '207R00000X' }, record).find((c) => c.field === 'provider.taxonomy_1');
+	assert.equal(ours?.status, 'ok');
 });
 
 test('steps: onStep sees every step in order, and can stop the run', async () => {
