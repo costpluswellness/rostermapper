@@ -163,7 +163,7 @@ td.nowrap { white-space: nowrap; }
 .fieldset .values { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 .fieldset tr.missing-required td, .fieldset tr.missing-required td b { color: var(--bad); }
 .fieldset tr.empty td b { color: var(--muted); font-weight: 500; }
-.fieldset tr:hover .pill.any, .fieldset tr.missing-required .pill.any { visibility: visible; }
+.fieldset tr:hover .pill.any, .fieldset tr.missing-required .pill.any, .fieldset tr.empty .pill.any { visibility: visible; }
 .pills { display: flex; flex-wrap: nowrap; overflow: hidden; align-items: center; gap: 4px; }
 .pills.open { flex-wrap: wrap; }
 .pills .pill { flex-shrink: 0; }
