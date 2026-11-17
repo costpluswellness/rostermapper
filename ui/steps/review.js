@@ -1,6 +1,6 @@
 import { $, XLSX, download, esc, plural, specOf } from '../lib.js';
 import { counts, isDropped, outputName, toReport } from '../rostermapper.js';
-import { saveAllowed, state } from '../state.js';
+import { saveAllowed, state, withInputs } from '../state.js';
 import { checkedWith, openMap, pickSheet, remember, run, sheetMemo } from '../app.js';
 import { isIgnored, toggleIgnored } from '../results.js';
 import { editControl, entityCard, onCardClick, renderChecksBar, runChecks } from './validate.js';
@@ -109,7 +109,7 @@ $('download-sheets').onchange = (e) => {
 $('download-confirm').onclick = () => {
   const kept = downloadResults().filter((s) => s.on && s.result?.records.length).map((s) => s.result);
   if (!kept.length) return;
-  download(toReport(state.name, kept, { notes: { Checked: checkedWith() } }), XLSX, downloadName(kept));
+  download(toReport(state.name, withInputs(kept), { notes: { Checked: checkedWith() } }), XLSX, downloadName(kept));
   $('download-dialog').close();
 };
 

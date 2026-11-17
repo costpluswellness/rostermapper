@@ -98,8 +98,17 @@
 
 /* Upload: the file and external sources on the left, the roster's settings on the right; the preview under both */
 .step { margin-top: 0; }
-.rm-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 2rem; align-items: start; }
-@media (max-width: 760px) { .rm-grid { grid-template-columns: 1fr; } }
+.landing { max-width: 40rem; margin: 2rem auto 0; }
+.landing-options { display: flex; justify-content: center; align-items: center; gap: 10px 22px; flex-wrap: wrap; margin-top: 1.25rem; font-size: 13px; color: var(--muted); }
+.landing-options .opt { display: inline-flex; align-items: center; gap: 8px; }
+.rm .landing-options select { font-size: 13px; padding: 3px 6px; }
+.landing-options .check { display: inline-flex; align-items: center; gap: 4px; color: inherit; cursor: pointer; }
+.rm .landing-options .rm-button { font-size: 13px; padding: 3px 8px; }
+.export-inputs { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.export-inputs label { display: inline-flex; align-items: center; gap: 6px; }
+.export-inputs label span { font-size: 12.5px; color: var(--muted); }
+.rm .export-inputs input { font-size: 13px; padding: 4px 8px; width: 12rem; }
+.rm .theme { text-decoration: none; font-size: 15px; color: var(--muted); }
 .rm fieldset { border: 0; margin: 0 0 1.5rem; padding: 0; min-width: 0; }
 .rm legend { font-weight: 600; padding: 0; margin-bottom: .75rem; }
 .rm fieldset.sources { margin-top: 2rem; }

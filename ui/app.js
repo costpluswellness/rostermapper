@@ -31,6 +31,18 @@ for (const kind of ['nppes', 'census']) {
   $(`use-${kind}`).onchange = (e) => setSource(kind, e.target.checked);
 }
 
+// ─── Theme: dark unless switched to light, remembered in this browser ───
+// Only when served on its own: a portal embedding Roster Mapper sets its own colours.
+const THEME_KEY = 'rostermapper.theme';
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem(THEME_KEY, theme); } catch { /* not remembered */ }
+  $('theme').textContent = theme === 'dark' ? '☀︎' : '☾';
+  $('theme').title = theme === 'dark' ? 'Light mode' : 'Dark mode';
+}
+setTheme(document.documentElement.dataset.theme || 'dark');
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
 // ─── How it works ───────────────────────────────────────────
 // One dialog for every step; it opens with the current step's section marked and in view.
 $('how').onclick = () => {
@@ -92,7 +104,6 @@ async function boot() {
   state.category = session.category ?? ''; // from --category; not shown, written into the export
   state.effectiveDate = session.effectiveDate ?? '';
   $('action').value = state.action;
-  $('effective-date').value = state.effectiveDate;
   state.inputs = { ...session.inputs };
   document.querySelectorAll('[data-input]').forEach((el) => (el.value = state.inputs[el.dataset.input] ?? ''));
   // --allow: added to the values allowed in this browser, for this session.
@@ -129,8 +140,12 @@ $('mapping').onchange = async (e) => {
 $('mapping-clear').onclick = () => { state.mapping = null; $('mapping').value = ''; run(); renderUpload(); };
 $('action').onchange = (e) => { state.action = e.target.value; run(); };
 $('hdr-reset').onclick = () => setHeaderRow(state.autoRow);
-$('effective-date').onchange = (e) => { state.effectiveDate = e.target.value; run(); };
-document.querySelectorAll('[data-input]').forEach((el) => (el.onchange = () => { state.inputs[el.dataset.input] = el.value.trim(); run(); }));
+// Contract ID and sender email, in the Download dialog and by Results' Download all: written into
+// every row when downloading (withInputs), so nothing reruns as they're typed.
+document.querySelectorAll('[data-input]').forEach((el) => (el.oninput = () => {
+  state.inputs[el.dataset.input] = el.value.trim();
+  document.querySelectorAll(`[data-input="${el.dataset.input}"]`).forEach((other) => other !== el && (other.value = el.value));
+}));
 
 // readWorkbook removes SSNs as it reads, so they never reach the page's state or screen.
 function loadSheets(name, sheets, sheet, headerRow) {
@@ -182,7 +197,7 @@ export function run() {
   if (!state.rows.length) return go(state.step);
   const options = {
     headerRow: state.headerRow, fileName: state.name, sheetName: state.sheet,
-    overrides: overrides(), unmapped: [...state.cleared], constants: { ...state.constants, ...state.inputs }, allowed: allowedOption(), ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
+    overrides: overrides(), unmapped: [...state.cleared], constants: { ...state.constants }, allowed: allowedOption(), ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
   };
   state.result = automap(state.rows, options); // always cleaned: these values move forward
   // The mapping before any change made on the Map step: its scores order each row's pills, so
@@ -317,7 +332,7 @@ export async function runFiles() {
     render();
     try {
       const results = (await runSheets(f.name, await f.read(), {
-        overrides: state.mapping?.overrides ?? {}, constants: { ...state.inputs }, allowed: allowedOption(),
+        overrides: state.mapping?.overrides ?? {}, allowed: allowedOption(),
         ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
         sources: state.sources, lookup: LOOKUP, lookups: state.lookups,
         progress: (done, total) => state.runToken === token && status(`${f.name}: checking ${done} of ${total}…`),

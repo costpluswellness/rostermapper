@@ -27,7 +27,7 @@ export const state = {
   checked: false, // lookups have run for this sheet
   sources: loadSources(), // New run's external sources: { nppes, census }, true when that lookup may run
   effectiveDate: '', // Upload: YYYY-MM-DD for rows whose effective date is blank
-  inputs: {}, // Upload: input field id → the value typed for every row (contract ID, sender email)
+  inputs: {}, // Download: input field id → the value written into every row (contract ID, sender email)
   files: [], // the files dropped together: { name, read() → sheets, status: waiting|running|done|error, results?, error? }
   current: -1, // the file open at Review, by index in `files`
   ignored: new Set(), // "file|sheet" of sheets left out of Results and the downloads (× on a sheet tab)
@@ -36,6 +36,13 @@ export const state = {
   progress: '', // the status bar: "Checking 12 of 40…" while lookups run
   allowed: loadAllowed(), // field → values the user allowed as written (provider types like AHP): not flagged
 };
+
+/** Results with the Download inputs (contract ID, sender email) written into every row; a blank one is left out. */
+export function withInputs(results) {
+  const set = Object.entries(state.inputs).filter(([, v]) => v);
+  if (!set.length) return results;
+  return results.map((r) => ({ ...r, records: r.records.map((x) => ({ ...x, values: { ...x.values, ...Object.fromEntries(set) } })) }));
+}
 
 // Values allowed as written, remembered in this browser so the next roster from the sender keeps them.
 function loadAllowed() {
