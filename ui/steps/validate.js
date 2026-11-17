@@ -82,7 +82,8 @@ function renderLine(parts, values, marks) {
     if (typeof p === 'string') { sep = p; continue; }
     const value = values[p.f];
     if (!value) continue;
-    const m = marks.get(p.f)?.status === 'skip' ? undefined : marks.get(p.f);
+    // Only problems are highlighted: a value is taken as confirmed unless marked otherwise (the card's ✓ says it was checked).
+    const m = ['skip', 'ok'].includes(marks.get(p.f)?.status) ? undefined : marks.get(p.f);
     const link = p.f.endsWith('.npi') && /^\d{10}$/.test(value) ? npiUrl(value) : '';
     const last = segs.at(-1);
     if (last && !p.pre && !link && !last[2] && last[1]?.status === m?.status) { last[0] += sep + value; if (m) last[1].tip += `\n${m.tip}`; }
