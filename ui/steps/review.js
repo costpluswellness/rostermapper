@@ -1,24 +1,59 @@
-import { $, esc, plural, specOf } from '../lib.js';
-import { isDropped } from '../rostermapper.js';
+import { $, XLSX, download, esc, plural, specOf } from '../lib.js';
+import { counts, isDropped, outputName, toReport } from '../rostermapper.js';
 import { saveAllowed, state } from '../state.js';
-import { go, run } from '../app.js';
-import { entityCard, onCardClick } from './validate.js';
-// ─── 5 Review ───────────────────────────────────────────────
-// The file's landing view: providers, locations and billing as a table or a graph, each card carrying
-// its Standardize and Validate results (highlights, ✓ verified, problems with "Use"), and every issue
-// below with a way to fix it.
+import { checkedWith, openMap, pickSheet, remember, run, sheetMemo } from '../app.js';
+import { isIgnored, toggleIgnored } from '../results.js';
+import { entityCard, onCardClick, renderChecksBar } from './validate.js';
+// ─── Review: a file's one page ──────────────────────────────
+// Its sheets along the top; providers, locations and billing as a graph or a table, each card carrying
+// its checks (✓, problems highlighted, "Use"); every issue below with its fix; Mapping and Raw data as
+// dialogs; Download for the whole file.
 export const KIND_LABEL = { missing: 'missing', format: 'invalid', invalid: 'per source', warning: 'check', default: 'note' };
 const NONE = { provider: 'No provider', practice: 'No practice location', billing: 'No billing' };
 
 export function renderReview() {
+  renderSheetTabs();
+  renderChecksBar();
   const graph = state.reviewView === 'graph';
   $('graph').hidden = !graph;
   $('chains-wrap').hidden = graph;
   document.querySelectorAll('#review-view button').forEach((b) => b.classList.toggle('on', b.dataset.review === state.reviewView));
-  $('review-checking').textContent = state.checking ? 'Checking…' : '';
   if (graph) renderPreview(); else renderChains();
   renderIssues();
+  if (state.editing) { const input = $('issues').querySelector('[data-editing]'); input?.focus(); input?.select(); }
 }
+
+// The file's sheets as tabs, each with its row count; × ignores one (left out of Results and the download), ↺ brings it back.
+function renderSheetTabs() {
+  const tabs = $('sheet-tabs');
+  tabs.hidden = state.sheets.length < 2;
+  if (tabs.hidden) return;
+  tabs.innerHTML = state.sheets.map(({ name }) => {
+    const off = isIgnored(state.name, name);
+    const result = name === state.sheet ? state.result : sheetMemo.get(`${state.name}|${name}`)?.result ?? state.files[state.current]?.results?.find((r) => r.sheet === name);
+    const n = result ? counts(result.records).rows : '';
+    return `<button type="button" data-sheet="${esc(name)}" class="${name === state.sheet ? 'on' : ''}${off ? ' ignored' : ''}"${off ? ' title="Ignored: left out of Results and the download"' : ''}>${esc(name)}` +
+      `${n !== '' ? ` <small class="muted">${n}</small>` : ''}<span class="x" data-ignore="${esc(name)}" title="${off ? 'Bring this sheet back' : 'Ignore this sheet: leave it out of Results and the download'}">${off ? '↺' : '×'}</span></button>`;
+  }).join('');
+}
+$('sheet-tabs').onclick = (e) => {
+  const x = e.target.closest('[data-ignore]');
+  if (x) return toggleIgnored(state.name, x.dataset.ignore);
+  const b = e.target.closest('[data-sheet]');
+  if (b && b.dataset.sheet !== state.sheet) { remember(); pickSheet(b.dataset.sheet); }
+};
+
+// One workbook for the file: every sheet not ignored, each as it was left here (or as the run made it).
+$('download').onclick = () => {
+  remember();
+  const f = state.files[state.current];
+  const results = state.sheets.map(({ name }) => name).filter((n) => !isIgnored(state.name, n))
+    .map((n) => sheetMemo.get(`${state.name}|${n}`)?.result ?? f?.results?.find((r) => r.sheet === n)).filter((r) => r?.records.length);
+  if (!results.length) return;
+  const name = results.length === 1 ? outputName(results[0].file, 'xlsx') : `RM_${state.name.replace(/\.[^.]+$/, '').replace(/\s+/g, '') || 'roster'}.xlsx`;
+  download(toReport(state.name, results, { notes: { Checked: checkedWith() } }), XLSX, name);
+};
+
 
 // Issues grouped by entity: the same issue on the same provider, location or billing entity shows
 // once, with its rows, and one fix for all of them: a missing value → its field on Map; a value
@@ -54,15 +89,20 @@ function renderIssues() {
   const order = ['provider', 'practice', 'billing'];
   const list = [...groups.values()].sort((a, b) => !!b.issue.drop - !!a.issue.drop || (order.indexOf(a.kind) + 4) % 4 - (order.indexOf(b.kind) + 4) % 4 || a.rows[0] - b.rows[0]);
   const fix = ({ issue: i, first, rows }) => {
-    if (i.kind === 'missing') return ` <button class="textlink small" data-map="${esc(i.field)}" title="See ${esc(i.field)} on Map">mapping</button>`;
+    if (i.kind === 'default') return '';
+    // "edit": type the right value for the issue's rows, in place.
+    const key = `${i.field}|${rows.join(',')}`;
+    if (state.editing === key) return ` <input class="fix" data-editing="${esc(key)}" value="${esc(first.values[i.field])}" spellcheck="false" aria-label="${esc(i.field)}">`;
+    const edit = ` <button class="textlink small" data-edit="${esc(key)}" title="Type the right value for ${esc(plural(rows.length, 'row'))}">edit</button>`;
+    if (i.kind === 'missing') return ` <button class="textlink small" data-map="${esc(i.field)}" title="See ${esc(i.field)} in Mapping">mapping</button>${edit}`;
     if (i.kind === 'format') {
-      // A value from a fixed list (provider type, gender, …) can be allowed as written; others are fixed by hand.
+      // A value from a fixed list (provider type, gender, …) can be allowed as written.
       const value = first.values[i.field];
       const allow = specOf(i.field).type === 'enum' && value ? ` <button class="use" data-allow="${esc(i.field)}" data-value="${esc(value)}" title="${esc(`Keep "${value}" as written for ${i.field}, in this file and the next (remembered in this browser)`)}">Allow “${esc(value)}”</button>` : '';
-      return `${allow} <button class="textlink small" data-goto="standardize" title="Fix it by hand on Standardize">edit</button>`;
+      return allow + edit;
     }
     const c = state.checks.get(first.row)?.get(i.field)?.[0];
-    if (c?.suggestion === undefined) return '';
+    if (c?.suggestion === undefined) return edit;
     const theirs = [c.suggestion, ...Object.values(c.also ?? {})].join(' / ');
     return ` <button class="use" data-use="${esc(i.field)}" data-rows="${rows.join(',')}" data-value="${esc(c.suggestion)}" data-also="${esc(JSON.stringify(c.also ?? {}))}" data-source="${esc(c.source)}" title="${esc(`Use ${c.source}'s value for ${plural(rows.length, 'row')}`)}">Use “${esc(theirs)}”</button>`;
   };
@@ -85,7 +125,9 @@ document.querySelectorAll('#review-view button').forEach((b) => (b.onclick = () 
 }));
 $('step-review').addEventListener('click', (e) => {
   const m = e.target.closest('[data-map]');
-  if (m) return showField(m.dataset.map);
+  if (m) return openMap(m.dataset.map);
+  const ed = e.target.closest('[data-edit]');
+  if (ed) { state.editing = ed.dataset.edit; return renderIssues(), $('issues').querySelector('[data-editing]')?.focus(); }
   const a = e.target.closest('[data-allow], [data-disallow]');
   if (a) {
     const f = a.dataset.allow ?? a.dataset.disallow;
@@ -97,14 +139,27 @@ $('step-review').addEventListener('click', (e) => {
   onCardClick(e, renderReview);
 });
 
-// Map, scrolled to one field's row and flashed.
-function showField(field) {
-  go('map');
-  const tr = document.querySelector(`#mapped tr[data-field="${CSS.escape(field)}"]`);
-  if (!tr) return;
-  tr.scrollIntoView({ block: 'center' });
-  tr.classList.add('flash');
-  setTimeout(() => tr.classList.remove('flash'), 1600);
+// An issue's value typed in place: Enter saves it for the issue's rows (cleaned and checked like any
+// other value), Escape or leaving the box without a change cancels.
+$('issues').addEventListener('keydown', (e) => {
+  const input = e.target.closest('[data-editing]');
+  if (!input) return;
+  if (e.key === 'Escape') { state.editing = null; return renderReview(); }
+  if (e.key === 'Enter') saveEdit(input);
+});
+$('issues').addEventListener('focusout', (e) => { const input = e.target.closest('[data-editing]'); if (input && state.editing) saveEdit(input); });
+function saveEdit(input) {
+  const [f, rows] = input.dataset.editing.split('|');
+  state.editing = null;
+  if (input.value === input.defaultValue) return renderReview(); // unchanged: nothing to save
+  const typed = input.value.trim();
+  for (const row of rows.split(',').map(Number)) {
+    const raw = state.byRow.get(row)?.raw.values[f] ?? '';
+    if (!state.fixes.has(row)) state.fixes.set(row, new Map());
+    // Typing the value back as written drops the fix, so cleaning applies again.
+    if (typed === raw) state.fixes.get(row).delete(f); else state.fixes.get(row).set(f, typed);
+  }
+  run();
 }
 
 // A card's HTML in a table cell or a graph node: title with its mark, detail lines, problems.

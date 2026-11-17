@@ -74,27 +74,9 @@
 .rm-rail a[aria-disabled] { pointer-events: none; opacity: .4; }
 .rm-rail li small { display: block; padding: 0 8px 4px 10px; color: var(--muted); }
 .rm-rail li small.bad { color: var(--bad); }
-/* A file's sheets, under it: × ignores one (left out of Results and the downloads), ↺ brings it back */
-.rm-rail .sheet-list { margin: 0 0 4px 10px; border-left: 1px solid var(--rule); }
-.rm-rail .sheet-list li { display: flex; align-items: center; }
-.rm-rail .sheet-list a { flex: 1; min-width: 0; padding-top: 1px; padding-bottom: 1px; }
-.rm-rail .sheet-list .x { border: 0; background: none; padding: 0 6px; color: var(--muted); cursor: pointer; visibility: hidden; }
-.rm-rail .sheet-list li:hover .x, .rm-rail .sheet-list li.ignored .x, .rm-rail .sheet-list .x:focus-visible { visibility: visible; }
-.rm-rail .sheet-list .x:hover { color: inherit; }
-.rm-rail .sheet-list li.ignored a { text-decoration: line-through; color: var(--muted); }
-.rm table.results tr.ignored td { color: var(--muted); }
-.rm-steps { counter-reset: step; }
-.rm-steps li { counter-increment: step; }
-.rm-steps li.soon { counter-increment: none; }
-.rm-steps li.soon a::before { content: ''; }
-.rm-steps a::before { content: counter(step); min-width: 1em; color: var(--muted); font-variant-numeric: tabular-nums; }
-.rm-steps a small { margin-left: auto; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rm-steps a small.bad { color: var(--bad); }
-
 /* Status bar: progress and counts on the left, the step buttons on the right */
 .rm-status { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; min-height: 2.75rem; padding: 6px 0; border-top: 1px solid var(--rule); background: var(--bg); font-size: 13px; }
 .nav-right { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
-#map-links { display: inline-flex; align-items: center; gap: 14px; }
 .rm-note { margin: 0 0 1rem; padding: .5rem .75rem; border-left: 3px solid var(--weak); background: var(--weak-soft); font-size: .9em; }
 .rm-note[title] { cursor: help; }
 
@@ -229,39 +211,14 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 .status { border-bottom: 1px dotted var(--muted); }
 .sample { display: inline-block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; border: 1px solid var(--rule); border-radius: 4px; padding: 0 5px; margin: 0 4px 3px 0; }
 
-/* Standardize and Review: switches between two views */
+/* Switches between views (Graph | Table, Results' tabs, sheet tabs) */
 .view-switch { display: inline-flex; margin: 0 0 12px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
 .rm .view-switch button { font-size: 13px; border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: 4px 12px; cursor: pointer; }
 .rm .view-switch button + button { border-left: 1px solid var(--rule); }
 .rm .view-switch button.on { background: var(--accent-soft); color: inherit; }
-#standardized .fieldset { margin-bottom: 20px; }
-.std th { white-space: nowrap; font-size: 12px; }
-.rm .std td { white-space: nowrap; font-size: 13px; background: none; width: auto; text-align: left; }
-.std td.bad { color: var(--bad); cursor: help; }
-.rm .std .pen { border: 0; background: none; padding: 0 0 0 4px; font-size: 12px; color: var(--muted); cursor: pointer; visibility: hidden; }
-.std td:hover .pen, .std .pen:focus-visible { visibility: visible; }
-.std td.fixed { text-decoration: underline dotted; text-underline-offset: 3px; }
-.rm .std td.fixing input { font: inherit; padding: 1px 4px; min-width: 14ch; }
 .rm .more { border: 0; background: none; font-size: 12px; color: var(--muted); cursor: pointer; padding: 6px 0 0; text-decoration: underline; }
 
-/* Validate: cards per entity, in its colour; each checked value highlighted with its result */
-.validate-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
-.validate-bar label { margin-left: auto; }
-.cards { margin: 0 0 20px; }
-.cards h3 { color: var(--ink-kind); margin: 8px 0; }
-.cards h3 .muted { font-weight: 400; font-size: 13px; }
-.card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-@media (max-width: 900px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 600px) { .card-grid { grid-template-columns: 1fr; } }
-.vcard { position: relative; background: var(--bg-kind); border: 1px solid var(--line-kind); border-radius: 8px; padding: 10px 30px 10px 12px; font-size: 13px; line-height: 1.45; }
-.vcard > b { display: block; font-weight: 600; margin-bottom: 2px; }
-.vcard > .line { display: block; color: var(--muted); font-size: 12.5px; }
-.vcard > .mark { position: absolute; top: 8px; right: 10px; font-size: 15px; }
-.vcard ul { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line-kind); font-size: 12.5px; }
-.vcard li { margin-bottom: 4px; }
-.vcard li.fail { color: var(--bad); }
-.vcard li.warn { color: var(--weak); }
-.vcard li b { display: inline; }
+/* Checks on Review's cards: one mark per card, problem values highlighted with their result */
 .mark { display: inline-block; width: 1.2em; font-weight: 700; cursor: help; }
 .mark.ok { color: var(--mapped); }
 .mark.suggest, .mark.warn { color: var(--weak); }
@@ -274,6 +231,25 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 .rm .drop { font-size: 11px; color: var(--bad); }
 .rm .use { font-size: 12px; border: 1px solid var(--rule); background: transparent; color: inherit; border-radius: 4px; padding: 0 6px; cursor: pointer; }
 .rm .use:hover { border-color: var(--accent); }
+
+/* Review: the file's sheets as tabs (× ignores one), the toolbar, then the graph or table */
+.rm .sheet-tabs { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; margin: 0 0 12px; }
+.rm .sheet-tabs button { display: inline-flex; align-items: baseline; gap: 5px; }
+.rm .sheet-tabs small { font-size: 11px; font-variant-numeric: tabular-nums; }
+.rm .sheet-tabs .x { color: var(--muted); visibility: hidden; padding: 0 2px; }
+.rm .sheet-tabs button:hover .x, .rm .sheet-tabs button.ignored .x { visibility: visible; }
+.rm .sheet-tabs .x:hover { color: inherit; }
+.rm .sheet-tabs button.ignored { text-decoration: line-through; opacity: .6; }
+.review-bar { flex-wrap: wrap; }
+.review-bar .nav-right { margin-left: auto; }
+.rm input.fix { font-size: 13px; padding: 1px 6px; min-width: 16ch; }
+
+/* Mapping and Raw data: dialogs over the file's page */
+.rm dialog.rm-dialog { width: min(1180px, 94vw); max-height: 90vh; padding: 0 1.25rem 1.25rem; border: 1px solid var(--rule); border-radius: .75rem; background: var(--bg); color: inherit; box-shadow: 0 10px 40px rgb(0 0 0 / .15); }
+.rm dialog.rm-dialog::backdrop { background: rgb(0 0 0 / .3); }
+.dialog-bar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 0; margin-bottom: 8px; background: var(--bg); border-bottom: 1px solid var(--rule); }
+.dialog-bar form { margin: 0; }
+#raw-dialog .scroll { max-height: 70vh; }
 
 /* Review: table of provider × location × billing, and the same links as a graph */
 .chains th { font-weight: 600; font-size: 13px; }
@@ -331,21 +307,6 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 #issues .ent-practice { color: var(--practice-ink); }
 #issues .ent-billing { color: var(--billing-ink); }
 .fieldset tr.flash td { background: var(--accent-soft); transition: background .3s; }
-
-/* The open file's steps, as tabs; × on a tab hides it, + brings hidden ones back */
-.file-tabs { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; }
-.file-tabs .view-switch { margin: 0; flex-wrap: wrap; }
-.rm .file-tabs .view-switch button { display: inline-flex; align-items: baseline; gap: 5px; }
-.file-tabs small { font-size: 11px; font-variant-numeric: tabular-nums; }
-.file-tabs small.bad { color: var(--bad); }
-.file-tabs .x { margin-left: 2px; color: var(--muted); visibility: hidden; }
-.file-tabs button:hover .x, .file-tabs button:focus-visible .x { visibility: visible; }
-.file-tabs .x:hover { color: var(--bad); }
-.rm #tab-add { font-size: 13px; padding: 2px 6px; color: var(--muted); }
-
-/* Export preview */
-.preview td { white-space: nowrap; font-size: 13px; }
-.preview td.issues { white-space: normal; min-width: 220px; color: var(--bad); }
 
 /* Results: the workbook's tables, one tab at a time, with a filter */
 .results-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin: 0 0 12px; }

@@ -17,7 +17,7 @@ flowchart LR
 5. **[Review](docs/steps.md#5-review)**: providers, practice locations and billing entities, and how they connect
 6. **[Export](docs/steps.md#6-export)**: one workbook per sheet, plus `summary.xlsx` for a batch
 
-The command line and the UI run the same pipeline. Both can go one step at a time to debug a roster: `--steps`, or **Step by step** in the UI.
+The command line and the UI run the same pipeline. The command line can go one step at a time to debug a roster: `--steps`.
 
 ## Use it
 

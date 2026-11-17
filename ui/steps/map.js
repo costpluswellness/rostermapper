@@ -3,7 +3,7 @@ import { overrides, render, run } from '../app.js';
 import { fieldLevel, schema } from '../rostermapper.js';
 import { MAPPABLE_IDS, download, esc, fieldTip, oneLine, plural, shortHeader, specOf } from '../lib.js';
 import { state } from '../state.js';
-// ─── 2 Map ──────────────────────────────────────────────────
+// ─── Mapping (a dialog over Review) ──────────────────────────────────────────────────
 const ENTITY_TITLES = { provider: 'Provider', practice: 'Practice', billing: 'Billing', network: 'Network' };
 const colBadge = (c) => `<span class="col">${c.letter}</span>` +
   (oneLine(c.header) ? `<span title="${esc(oneLine(c.header))}">${esc(shortHeader(c.header))}</span>` : '<span class="muted">(blank)</span>');
@@ -53,7 +53,7 @@ function fitPills() {
   });
 }
 let fitTimer;
-window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => state.step === 'map' && fitPills(), 100); });
+window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => $('map-dialog').open && fitPills(), 100); });
 
 // The action set on step 0 ('' = detect), kept in step with its select there.
 function setAction(v) {

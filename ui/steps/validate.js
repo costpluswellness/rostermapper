@@ -1,9 +1,9 @@
-// 4 Validate (step by step): look up NPIs and addresses, show each entity's checks as a card, accept
-// or undo suggestions. A run does the same in one go (validateRecords), applying only trusted fixes.
+// Checks: look up NPIs and addresses, draw each entity's checks as a card (Review's graph and table),
+// accept or undo suggestions. A run does the same in one go (validateRecords), applying only trusted fixes.
 import { RANK, applyDropRules, checkIssues, lookupAll, lookupTargets, recordChecks } from '../rostermapper.js';
 import { $, LOOKUP, esc, plural } from '../lib.js';
 import { SOURCE_NAME, state } from '../state.js';
-import { go, render, run, setSource, status } from '../app.js';
+import { render, run, setSource, status } from '../app.js';
 import { srcOf } from './entities.js';
 // Only outside sources: NPPES and Census lookups, through the CLI's server (checks a value can fail
 // on its own, like the NPI check digit, are Standardize's). A suggestion can be accepted per cell ("Use"); accepted
@@ -70,7 +70,6 @@ const CARD_KINDS = [
   ['billing', 'Billing', () => state.entities.billing],
 ];
 const addressLines = (p) => [[F(`${p}.address_1`)], [F(`${p}.address_2`)], [F(`${p}.city`), ', ', F(`${p}.state`), ' ', F(`${p}.zip`)]];
-const CARDS_SHOWN = 20;
 const problem = (s) => s === 'fail' || s === 'suggest' || s === 'warn';
 
 function renderLine(parts, values, marks) {
@@ -140,7 +139,7 @@ export function entityCard(kind, entity) {
   const fixes = changes + items.filter((i) => !i.acc?.auto && (i.acc || problem(i.check?.status))).map((i) => {
     if (i.acc) return `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(i.value)} <span class="muted">accepted</span> <button class="textlink small" data-undo="${i.f}" data-rows="${key}">undo</button></li>`;
     return problemItem(i.f, i.value, i.check, entity.rows);
-  }).join('') + formats.map(({ f, issue }) => `<li class="fail"><span class="muted">${LABEL(f)}:</span> ${esc(issue.message)} <button class="textlink small" data-goto="standardize" title="Fix it by hand on Standardize">edit</button></li>`).join('');
+  }).join('') + formats.map(({ f, issue }) => `<li class="fail"><span class="muted">${LABEL(f)}:</span> ${esc(issue.message)}</li>`).join('');
   const lines = card.lines(values).map((l) => renderLine(l, values, marks)).filter(Boolean);
   const head = renderLine(card.title(values), values, marks) || lines.shift() || '';
   const missing = card.missing(values).filter(Boolean);
@@ -161,12 +160,11 @@ export function problemItem(f, value, c, rows) {
   return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}"><span class="muted">${LABEL(f)}:</span> ${esc(c.detail)}</li>`;
 }
 
-/** Clicks on a card's buttons (Use, undo, changes, edit), wherever the card is drawn. True when handled. */
+/** Clicks on a card's buttons (Use, undo, changes), wherever the card is drawn. True when handled. */
 export function onCardClick(e, rerender) {
-  const b = e.target.closest('[data-use], [data-undo], [data-changes], [data-goto]');
+  const b = e.target.closest('[data-use], [data-undo], [data-changes]');
   if (!b) return false;
   e.stopPropagation();
-  if (b.dataset.goto) { go(b.dataset.goto); return true; }
   if (b.dataset.changes) {
     const k = b.dataset.changes;
     if (!state.showChanges.delete(k)) state.showChanges.add(k);
@@ -188,34 +186,17 @@ export function onCardClick(e, rerender) {
   return true;
 }
 
-// Cards: one per provider, location and billing entity, in its colour, showing only the values that
-// get checked. Each checked value is highlighted with its result (hover for the source).
-export function renderValidate() {
-  const pending = new Map(); // source → suggestions not yet accepted, for "Use all"
-  $('validated').innerHTML = CARD_KINDS.map(([kind, title, list]) => {
-    const all = list().map((entity) => {
-      const c = entityCard(kind, entity);
-      for (const { f, acc, check } of entityChecks(kind, entity).items) if (!acc && check.status === 'suggest' && !check.keep) pending.set(check.source, [...(pending.get(check.source) ?? []), { f, rows: entity.rows, value: check.suggestion, also: check.also ?? {} }]);
-      return c;
-    });
-    const cards = all.filter((c) => !state.onlyProblems || problem(c.status));
-    if (!cards.length) return '';
-    const open = state.expanded.has(`v-${kind}`);
-    const shown = open ? cards : cards.slice(0, CARDS_SHOWN);
-    const html = shown.map(({ mark, head, lines, fixes }) =>
-      `<div class="vcard">${mark}<b>${head}</b>${lines.map((l) => `<span class="line">${l}</span>`).join('')}${fixes ? `<ul>${fixes}</ul>` : ''}</div>`).join('');
-    const counts = ['fail', 'suggest', 'warn'].map((s) => [s, all.filter((c) => c.status === s).length]).filter(([, n]) => n);
-    const more = cards.length > CARDS_SHOWN ? `<button class="more" data-kind="v-${kind}">${open ? 'Show fewer' : `Show all ${cards.length}`}</button>` : '';
-    return `<section class="cards ${kind}"><h3>${title} <span class="muted">${all.length}${counts.length ? ` · ${counts.map(([s, n]) => `${MARK[s]} ${n}`).join(' · ')}` : ''}</span></h3>` +
-      `<div class="card-grid">${html}</div>${more}</section>`;
-  }).join('') || '<p class="muted">Nothing to show.</p>';
-
-  $('validated').querySelectorAll('.more').forEach((b) => (b.onclick = () => {
-    const k = b.dataset.kind;
-    if (state.expanded.has(k)) state.expanded.delete(k); else state.expanded.add(k);
-    renderValidate();
-  }));
-  // "Use all N from Census": accept every pending suggestion from one source; "undo all" clears them.
+// The checks bar on Review: Run checks, sources turned off, and "Use all N from NPPES" for the
+// suggestions not yet accepted (one-at-a-time ones, like taxonomies, excepted).
+export function renderChecksBar() {
+  const pending = new Map(); // source → suggestions not yet accepted
+  for (const [kind, , list] of CARD_KINDS) {
+    for (const entity of list()) {
+      for (const { f, acc, check } of entityChecks(kind, entity).items) {
+        if (!acc && check.status === 'suggest' && !check.keep) pending.set(check.source, [...(pending.get(check.source) ?? []), { f, rows: entity.rows, value: check.suggestion, also: check.also ?? {} }]);
+      }
+    }
+  }
   const accepted = [...state.accepted.values()].reduce((n, m) => n + [...m.values()].filter((a) => !a.with).length, 0);
   $('bulk').innerHTML = [...pending].map(([source, list]) => `<button class="use" data-all="${esc(source)}">Use all ${list.length} from ${esc(source)}</button>`).join(' ') +
     (accepted ? ` <button class="textlink small" id="undo-all">undo all ${accepted}</button>` : '');
@@ -229,15 +210,13 @@ export function renderValidate() {
     state.accepted = new Map();
     run();
   };
-  const done = state.lookups.nppes.size + state.lookups.census.size;
   const anyOn = state.sources.nppes || state.sources.census;
-  $('run-checks').textContent = state.checking ? 'Checking…' : done ? 'Run checks again' : 'Run checks';
+  $('run-checks').textContent = state.checking ? 'Checking…' : 'Run checks';
   $('run-checks').disabled = state.checking || !anyOn;
-  // "NPPES: off (turned off on Upload) · Turn on", per source that's off.
+  // "NPPES: off · Turn on", per source that's off.
   $('sources-off').innerHTML = ['nppes', 'census'].filter((k) => !state.sources[k]).map((k) =>
-    `<span class="muted">${SOURCE_NAME[k]}: off (turned off on Upload)</span> <button class="textlink small" data-on="${k}">Turn on</button>`).join(' · ');
+    `<span class="muted">${SOURCE_NAME[k]}: off</span> <button class="textlink small" data-on="${k}">Turn on</button>`).join(' · ');
 }
-$('validated').onclick = (e) => onCardClick(e, renderValidate);
 
 // Accept a suggestion for an entity's rows. An address split sets line 2 too (`also`); undoing
 // line 1 undoes both (see data-undo).
@@ -293,4 +272,3 @@ export async function runChecks(kinds = ['nppes', 'census'].filter((k) => state.
 }
 $('run-checks').onclick = () => runChecks();
 $('sources-off').onclick = (e) => { const kind = e.target.dataset?.on; if (kind) setSource(kind, true); };
-$('only-problems').onchange = (e) => { state.onlyProblems = e.target.checked; renderValidate(); };
