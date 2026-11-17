@@ -21,7 +21,7 @@ export interface Check {
 	also?: Record<string, string>;
 	/** The row can't move forward (wrong or unusable NPI). Only with status "fail". */
 	drop?: true;
-	/** Apply the suggestion without asking; the user can undo it (Census addresses, NPPES legal names, a blank taxonomy). */
+	/** Apply the suggestion without asking; the user can undo it (Census addresses, NPPES legal names, a blank legal name or taxonomy). */
 	auto?: true;
 	/** Shown on the card, but not an issue: the source couldn't confirm, which isn't a fault in the row. */
 	quiet?: true;
@@ -227,6 +227,8 @@ export function nppesBillingChecks(values: Values, record: NppesRecord | null): 
 	const checks: Check[] = [{ field: 'billing.npi', status: 'ok', source: 'NPPES', detail: `Active organization NPI in NPPES: ${b.organization_name ?? ''}` }];
 	const name = values['billing.legal_name'];
 	const theirs = b.organization_name ? orgName(b.organization_name) : '';
+	// No legal name in the roster: the active organization NPI's name in NPPES fills it, applied without asking.
+	if (!name && theirs) checks.push({ field: 'billing.legal_name', status: 'suggest', source: 'NPPES', detail: `Blank in the roster; NPPES has "${b.organization_name}"`, suggestion: theirs, auto: true });
 	if (name && theirs) {
 		if (same(name, theirs) || same(name, b.organization_name)) checks.push({ field: 'billing.legal_name', status: 'ok', source: 'NPPES', detail: 'Matches the organization name in NPPES' });
 		// NPPES's legal name is used unless it shares no word with the roster's: then it may be the wrong NPI.

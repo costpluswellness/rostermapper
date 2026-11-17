@@ -5,7 +5,7 @@ import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { automap, isDropped, nppesProviderChecks, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
+import { automap, isDropped, nppesBillingChecks, nppesProviderChecks, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
 import { readWorkbook } from '../src/workbook';
 import { mapFiles } from '../src/node';
 import { main, type Io } from '../src/cli/cli';
@@ -74,6 +74,15 @@ test('validate: a blank taxonomy is filled with NPPES\'s primary; a roster\'s ta
 	assert.equal(blank?.auto, true);
 	const ours = nppesProviderChecks({ ...values, 'provider.taxonomy_1': '207R00000X' }, record).find((c) => c.field === 'provider.taxonomy_1');
 	assert.equal(ours?.status, 'ok');
+});
+
+test('validate: a blank billing legal name is filled from NPPES, for an active organization NPI only', () => {
+	const org: NppesRecord = { number: '1999990058', enumeration_type: 'NPI-2', basic: { status: 'A', organization_name: 'DK PHYSICIANS PROFESSIONAL LIMITED LIABILITY COMPANY' } };
+	const fill = (record: NppesRecord) => nppesBillingChecks({ 'billing.npi': '1999990058' }, record).find((c) => c.field === 'billing.legal_name');
+	assert.equal(fill(org)?.suggestion, 'DK Physicians PLLC');
+	assert.equal(fill(org)?.auto, true);
+	assert.equal(fill({ ...org, enumeration_type: 'NPI-1' }), undefined); // an individual's NPI
+	assert.equal(fill({ ...org, basic: { ...org.basic, status: 'D' } }), undefined); // deactivated
 });
 
 test('steps: onStep sees every step in order, and can stop the run', async () => {
