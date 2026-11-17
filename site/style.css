@@ -272,3 +272,25 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 /* Export preview */
 .preview td { white-space: nowrap; font-size: 13px; }
 .preview td.issues { white-space: normal; min-width: 220px; color: var(--bad); }
+
+/* Several files: their list on the left, the work on the right */
+.rm-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+.rm-layout:has(> .rm-files:not([hidden])) { grid-template-columns: 13rem minmax(0, 1fr); }
+@media (max-width: 760px) { .rm-layout:has(> .rm-files:not([hidden])) { grid-template-columns: minmax(0, 1fr); } }
+.rm-files { margin-top: 1rem; font-size: 13px; position: sticky; top: 1rem; align-self: start; max-height: calc(100vh - 2rem); overflow: auto; }
+.rm-files ul { list-style: none; margin: .5rem 0 0; padding: 0; }
+.rm-files li { padding: 4px 0 4px 8px; border-left: 2px solid transparent; }
+.rm-files a { color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.rm-files a:hover { text-decoration: underline; }
+.rm-files a.on { font-weight: 600; padding-left: 8px; border-left: 2px solid var(--accent); }
+.rm-files small { display: block; color: var(--muted); }
+.rm-files .bad { color: var(--bad); }
+
+/* Results: every file's sheets, then what was left out and the other issues */
+.results-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin: 0 0 12px; }
+.rm details { margin-top: 1rem; }
+.rm details > summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.rm table.results td.num, .rm table.results th.num { text-align: right; }
+.rm table.results .bad { color: var(--bad); }
+#mode { margin-bottom: 10px; }
+.rm :is(#left-out, #all-issues) td:last-child { min-width: 18rem; }

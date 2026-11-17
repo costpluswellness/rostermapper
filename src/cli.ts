@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 import { ACTIONS, type Action } from './action';
 import { automap, type AutomapResult } from './automap';
-import { autoFixes, checkIssues, lookupTargets, nameKey, nameSearches, recordChecks, type Lookups, type Sources } from './checks';
+import { validateRecords, type Sources } from './checks';
 import { toCsv, toIssuesCsv } from './csv';
 import { fieldList } from './fields';
 import { FILE_CATEGORIES, outputName, type FileCategory } from './file';
@@ -17,7 +17,7 @@ import { cacheFile, diskCacheOn, lookupAddress, lookupNpi, lookupStats, searchNp
 import { isDropped, type RosterRecord } from './records';
 import type { CensusMatch, NppesRecord } from './validate';
 import { openUi, type Session, type UiFiles } from './ui';
-import { toBatchSummary, toReport, type BatchEntry } from './report';
+import { sheetEntry, toBatchSummary, toReport, type BatchEntry } from './report';
 import { readWorkbook, type Sheet } from './workbook';
 import { version } from '../package.json';
 
@@ -308,11 +308,7 @@ async function map(file: string, opts: MapOptions, io: Io, batch?: BatchEntry[])
 			}
 			const path = freeName(join(output, outputName(r.file, 'xlsx')));
 			report(path, [r]);
-			const leftOut = r.records.filter(isDropped).length;
-			batch?.push({
-				file: basename(file), sheet: r.sheet, action: r.action.action, category: r.category.category, rows: r.records.length,
-				movedForward: r.records.length - leftOut, leftOut, withIssues: r.records.filter(hasProblem).length, output: basename(path),
-			});
+			batch?.push(sheetEntry(basename(file), r, basename(path)));
 		}
 	} else if (output !== undefined && format === '.xlsx') report(output, results);
 	else if (output !== undefined) {
@@ -339,48 +335,21 @@ async function map(file: string, opts: MapOptions, io: Io, batch?: BatchEntry[])
 	return 0;
 }
 
-// Validate without the UI: look up every NPI and address (4 at a time), then search NPPES by name for
-// providers whose NPI has another last name. Apply what the UI applies on its own (Census addresses,
-// NPPES legal names) and add the checks' failures and warnings to each record's issues.
+// Validate in the terminal (see validateRecords): live lookups, cached on disk, with progress.
 async function validate(records: RosterRecord[], on: Sources, io: Io): Promise<void> {
 	if (!records.length || (!on.nppes && !on.census)) return;
-	const lookup = io.lookup ?? { npi: lookupNpi, address: lookupAddress, byName: searchNpiByName };
-	const { npis, lines } = lookupTargets(records.map((r) => r.values));
-	const before = { ...lookupStats }; // a bulk run looks up file after file: count this file's alone
-	const lookups: Lookups = { nppes: new Map(), census: new Map(), names: new Map() };
 	const progress = io.progress ?? !!process.stderr.isTTY;
-	const answer = <T>(p: Promise<T>) => p.catch((e: Error) => ({ error: e.message }));
-	const runAll = async (jobs: (() => Promise<void>)[]) => {
-		let done = 0;
-		const total = jobs.length;
-		await Promise.all(Array.from({ length: 4 }, async () => {
-			for (let job; (job = jobs.shift()); ) {
-				await job();
-				if (progress) io.err.write(`\rChecking ${++done} of ${total}…`);
-			}
-		}));
-		if (progress && done) io.err.write('\r\x1b[K');
-	};
-	await runAll([
-		...(on.nppes ? [...npis] : []).map((n) => async () => void lookups.nppes.set(n, await answer(lookup.npi(n)))),
-		...(on.census ? [...lines] : []).map((l) => async () => void lookups.census.set(l, await answer(lookup.address(l)))),
-	]);
-	if (on.nppes) await runAll(nameSearches(records.map((r) => r.values), lookups).map((q) => async () => void lookups.names!.set(nameKey(q), await answer(lookup.byName(q)))));
+	const before = { ...lookupStats }; // a bulk run looks up file after file: count this file's alone
+	let shown = false;
+	await validateRecords(records, on, io.lookup ?? { npi: lookupNpi, address: lookupAddress, byName: searchNpiByName }, {
+		progress: (done, total) => progress && ((shown = true), io.err.write(`\rChecking ${done} of ${total}…`)),
+	});
+	if (shown) io.err.write('\r\x1b[K');
 	const asked = lookupStats.asked - before.asked;
 	const saved = lookupStats.saved - before.saved;
 	if (!io.lookup && saved + asked) {
 		io.err.write(`Lookups: ${asked} asked of NPPES and Census, ${saved} reused` +
 			(!diskCacheOn() ? ' (--no-cache)\n' : ` from ${cacheFile().replace(homedir(), '~')}\n`));
-	}
-	for (const record of records) {
-		const checks = recordChecks(record.values, lookups, on);
-		const fixes = autoFixes(checks);
-		for (const [field, value] of Object.entries(fixes)) {
-			record.values[field] = value;
-			checks.delete(field);
-		}
-		record.issues = record.issues.filter((i) => !(i.field in fixes && (i.kind === 'missing' || i.kind === 'format')));
-		record.issues.push(...checkIssues(checks));
 	}
 }
 

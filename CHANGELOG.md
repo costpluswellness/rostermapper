@@ -6,6 +6,7 @@
 - NPPES warnings become issues: one name or the credential far from NPPES's, first and last name swapped, a source that didn't answer
 - `--no-ui` runs every step in the terminal, NPPES and Census lookups included (`--keep-dropped` keeps dropped rows in the output)
 - The CLI runs in the terminal by default (`--ui` opens the browser UI; `--no-ui` is still accepted) and saves one workbook per sheet to `./output/`, named like the UI's downloads (`RM_<file>_<sheet>.xlsx`, with a timestamp when the name is taken)
+- UI: drop several files or a folder ("Open a folder"); they're listed on the left. **Quick**, the default, runs every step on every file and shows Results: each sheet's counts, every row left out and why, every issue, a workbook per sheet and "Download all" (zip with `summary.xlsx`). **Step by step** opens each file at Upload; "Run all steps" finishes a file and goes to Export, which now downloads a workbook too
 - Bulk: `rostermapper inbox/` (or several files) maps every roster into `output/<date-time>/`, one workbook per sheet, plus `summary.xlsx` listing each sheet and each file that failed
 - `-o result.xlsx` writes the whole result as one workbook: Summary, Mapping (each column and its field, or why not), Data, Issues (one line per problem) and Left out; the terminal then shows a short summary instead of the full report
 - `dev/rmap` (and `pnpm cli`) run the CLI from source with no build; `dev/rmap` skips pnpm too

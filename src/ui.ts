@@ -37,8 +37,11 @@ const TYPES: Record<string, string> = {
 	'.js': 'text/javascript; charset=utf-8',
 };
 
-// dist/cli.js → dist/ui/
-const uiDir = () => fileURLToPath(new URL('./ui/', import.meta.url));
+// dist/cli.js → dist/ui/; run from source (dev/rmap, pnpm cli), src/ui.ts → dist/ui/ too, so "pnpm build" first.
+const uiDir = () => {
+	const next = fileURLToPath(new URL('./ui/', import.meta.url));
+	return existsSync(next) ? next : fileURLToPath(new URL('../dist/ui/', import.meta.url));
+};
 
 export interface UiFiles {
 	/** The roster, already read and SSN-redacted: the browser never receives the file's raw bytes. */

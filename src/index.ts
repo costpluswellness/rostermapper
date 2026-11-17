@@ -4,7 +4,7 @@ export { groupEntities, type Entities, type Entity, type EntityKind } from './en
 export { leftOutRows, outputFields, outputOrder, recordRows, toCsv, toIssuesCsv } from './csv';
 export { detectCategory, FILE_ACTIONS, FILE_CATEGORIES, FILE_FIELDS, fileAction, fileValues, namesFacility, outputName, type CategoryInput, type CategorySource, type DetectedCategory, type FileAction, type FileCategory, type FileInfo } from './file';
 export { applyDropRules, buildRecords, isDropped, primaryNpi, type Issue, type RosterRecord } from './records';
-export { autoFixes, checkIssues, lookupTargets, nameKey, nameSearches, RANK, recordChecks, type LookupError, type Lookups, type NameQuery, type Sources } from './checks';
+export { autoFixes, checkIssues, lookupTargets, nameKey, nameSearches, RANK, recordChecks, validateRecords, type LookupError, type LookupFns, type Lookups, type NameQuery, type Sources } from './checks';
 export { parseMapping, type ParsedMapping } from './mapping';
 export { addressLine, censusChecks, degreesDiffer, nameDifference, orgName, streetOnly, wantsNameSearch, nppesBillingChecks, nppesProviderChecks, type CensusMatch, type Check, type CheckStatus, type NppesRecord } from './validate';
 export { NUCC, NUCC_VERSION } from './nucc.generated';

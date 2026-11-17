@@ -29,6 +29,13 @@
   <button type="button" id="how" class="linkish">How it works</button>
 </header>
 
+<div class="rm-layout">
+<!-- Files from a folder or several dropped at once: each one's result, and a way into its steps. -->
+<aside id="files" class="rm-files" hidden>
+  <a href="#" id="files-results" title="Every file's result: what moved forward, what was left out and why">Results</a>
+  <ul id="file-list"></ul>
+</aside>
+<div class="rm-work">
 <ol id="steps" class="rm-steps">
   <li><a href="#" data-step="upload">Upload</a></li>
   <li><a aria-disabled="true" title="Not built yet">Transform <span class="rm-soon">soon</span></a></li>
@@ -38,7 +45,7 @@
   <li><a href="#" data-step="review">Review</a></li>
   <li><a href="#" data-step="export">Export</a></li>
 </ol>
-<nav class="rm-nav">
+<nav class="rm-nav" id="nav">
   <button type="button" id="back">← Back</button>
   <span class="nav-right">
     <span id="map-links" hidden>
@@ -46,7 +53,7 @@
       <button type="button" id="clear-edits" class="textlink" hidden>Undo changes</button>
       <button type="button" id="download-mapping" class="textlink">Download mapping file</button>
     </span>
-    <button type="button" disabled title="Not built yet: runs every step with the recommended options">Run all steps with recommended options</button>
+    <button type="button" id="run-all" title="Run the remaining steps with the recommended options (lookups, trusted fixes) and go to Export">Run all steps</button>
     <button type="button" id="next" class="primary">Next →</button>
   </span>
 </nav>
@@ -55,13 +62,14 @@
 <section class="step" id="step-upload">
   <div class="rm-grid">
     <div>
+      <p class="view-switch" id="mode"><button type="button" data-mode="quick" class="on" title="Run every step with the recommended options and show the result. Open any file to go through its steps.">Quick</button><button type="button" data-mode="steps" title="Go through each file's steps one by one">Step by step</button></p>
       <label id="drop">
-        <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+        <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple hidden>
         <svg class="drop-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 16V4m0 0-5 5m5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <b id="drop-title">Drop a roster file</b>
+        <b id="drop-title">Drop roster files or a folder</b>
         <span id="drop-hint" class="muted">or click to browse · xlsx, xls, csv</span>
       </label>
-      <p id="private-note" class="hint center">Read in this browser. Nothing is stored, SSNs are never read.</p>
+      <p class="hint center"><span id="private-note">Read in this browser. Nothing is stored, SSNs are never read. · </span><label class="textlink">Open a folder<input type="file" id="folder" webkitdirectory hidden></label></p>
       <div id="sheets" class="sheets" hidden></div>
 
       <fieldset class="sources">
@@ -111,6 +119,15 @@
   </div>
 </section>
 
+<section class="step" id="step-results" hidden>
+  <p class="results-bar"><span id="results-summary"></span>
+    <span class="nav-right"><button type="button" id="rerun" class="textlink" title="Run every file again with the options under Upload">Run again</button>
+    <button type="button" id="download-all" class="primary" title="One workbook per sheet (Summary, Mapping, Data, Issues, Left out), plus summary.xlsx when there are several">Download all</button></span></p>
+  <div class="scroll"><table id="results" class="results"></table></div>
+  <details id="left-out-wrap" open><summary id="left-out-title">Left out</summary><div class="scroll short tall"><table id="left-out"></table></div></details>
+  <details id="issues-wrap"><summary id="issues-title">Issues</summary><div class="scroll short tall"><table id="all-issues"></table></div></details>
+</section>
+
 <section class="step" id="step-map" hidden>
   <div id="mapped" class="fieldsets"></div>
   <details class="unmapped">
@@ -144,17 +161,22 @@
 
 <section class="step" id="step-export" hidden>
   <p id="export-summary"></p>
-  <p><button id="export-csv" class="primary">Download CSV</button> <button id="export-json">Download JSON</button>
+  <p><button id="export-xlsx" class="primary" title="Summary, Mapping, Data, Issues and Left out, in tabs">Download workbook</button> <button id="export-csv">Download CSV</button> <button id="export-json">Download JSON</button>
     <button id="export-issues" title="Every row left out of the CSV, with the reason, and its values to fix and send again">Download issues</button></p>
   <div class="scroll tall"><table id="export-preview" class="preview"></table></div>
   <p id="export-more" class="muted"></p>
 </section>
 
+</div>
+</div>
+
 <!-- How it works: one dialog for every step; the current step's section is marked. -->
 <dialog id="how-dialog">
   <h2>How Roster Mapper works</h2>
   <section data-how="upload"><h3>1 · Upload</h3><ul>
-    <li>Drop an xlsx, xls or csv. It's read in this browser; SSNs are removed as it's read.</li>
+    <li>Drop xlsx, xls or csv files, or a folder of them. They're read in this browser; SSNs are removed as they're read.</li>
+    <li><b>Quick</b> (the default) runs every step with the recommended options and shows what moved forward, what was left out and why, with a workbook per sheet to download. Click a file to go through its steps.</li>
+    <li><b>Step by step</b> opens each file at this step instead. "Run all steps" finishes a file from wherever you are.</li>
     <li>The header row is found automatically. Click another row in the preview to change it.</li>
     <li>The action (ADD, UPDATE or TERM) comes from an action column, then the sheet name, then the file name.</li></ul></section>
   <section data-how="transform"><h3>2 · AI transform <span class="rm-soon">soon</span></h3><ul>
@@ -196,7 +218,7 @@
     <li>Visualize relationships by entity: which unique NPIs, tax IDs, billing entities and network records are being entered.</li>
     <li>See which providers work at which locations and bill through which entities, and every issue by row.</li></ul></section>
   <section data-how="export"><h3>7 · Export</h3><ul>
-    <li>Download one record per row, with every field and its issues, as CSV or JSON.</li></ul></section>
+    <li>Download a workbook (Summary, Mapping, Data, Issues and Left out tabs), or the records as CSV or JSON.</li></ul></section>
   <form method="dialog"><button>Close</button></form>
 </dialog>
 

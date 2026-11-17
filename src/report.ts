@@ -1,7 +1,7 @@
 // The whole result of mapping one file, as one Excel workbook: what was decided (Summary, Mapping),
 // what moves forward (Data) and what didn't (Issues, Left out). Written by the CLI for -o *.xlsx.
 // Kept out of the core because it depends on SheetJS.
-import { utils, write, type WorkSheet } from 'xlsx';
+import { CFB, utils, write, type WorkSheet } from 'xlsx';
 import type { AutomapResult } from './automap';
 import { leftOutRows, recordRows } from './csv';
 import { isDropped, type Issue, type RosterRecord } from './records';
@@ -107,6 +107,22 @@ export interface BatchEntry {
 	output?: string;
 	/** Why nothing was written: unreadable, password-protected, no records, … */
 	error?: string;
+}
+
+/** A sheet's line in the batch summary. `output`: its workbook's file name. */
+export function sheetEntry(file: string, r: AutomapResult & { sheet: string }, output: string): BatchEntry {
+	const leftOut = r.records.filter(isDropped).length;
+	return {
+		file, sheet: r.sheet, action: r.action.action, category: r.category.category, rows: r.records.length, movedForward: r.records.length - leftOut, leftOut,
+		withIssues: r.records.filter((x) => x.issues.some((i) => i.kind !== 'default')).length, output,
+	};
+}
+
+/** Files in one zip, for the UI's "Download all" (a browser can't save a folder). */
+export function toZip(files: readonly { name: string; bytes: Uint8Array }[]): Uint8Array {
+	const zip = CFB.utils.cfb_new();
+	for (const f of files) CFB.utils.cfb_add(zip, f.name, f.bytes);
+	return new Uint8Array(CFB.write(zip, { type: 'array', fileType: 'zip', compression: true }) as ArrayLike<number>);
 }
 
 /** The batch's summary workbook: one line per sheet written, or per file that failed, and why. */

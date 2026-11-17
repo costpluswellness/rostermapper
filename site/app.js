@@ -1,7 +1,9 @@
-// Roster Mapper UI, opened by the CLI (node dist/cli.js [roster.xlsx]). One screen per step:
+// Roster Mapper UI, opened by the CLI (node dist/cli.js --ui [roster.xlsx]). One screen per step:
 // 0 Upload → (1 Transform, not built) → 2 Map → 3 Standardize → 4 Validate → 5 Review → 6 Export.
+// Quick mode (the default) runs every step on every dropped file at once and shows Results; any file
+// opens in the steps from there.
 // Files are read in the browser and Roster Mapper runs here, so every change recalculates live.
-import { applyDropRules, automap, checkIssues, cleanValue, isDropped, lookupTargets, nameKey, nameSearches, outputFields, outputOrder, outputName, detectHeaderRow, fieldLevel, groupEntities, isBlank, isFreeText, isStandardized, RANK, recordChecks, standardRule, parseMapping, readWorkbook, schema, toCsv, toIssuesCsv } from './rostermapper.js';
+import { applyDropRules, automap, checkIssues, cleanValue, isDropped, lookupTargets, nameKey, nameSearches, outputFields, outputOrder, outputName, detectHeaderRow, fieldLevel, groupEntities, isBlank, isFreeText, isStandardized, RANK, recordChecks, standardRule, parseMapping, readWorkbook, schema, toCsv, toIssuesCsv, validateRecords, toReport, toZip, toBatchSummary, sheetEntry } from './rostermapper.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -23,6 +25,7 @@ const fieldTip = (id) => { const f = specOf(id); return `${f.description.split('
 
 // Upload's Checks, saved in this browser (see loadSources). Above `state`, which reads them.
 const SOURCES_KEY = 'rostermapper.sources';
+const MODE_KEY = 'rostermapper.mode';
 const SOURCE_NAME = { nppes: 'NPPES', census: 'US Census geocoder' };
 
 const state = {
@@ -51,7 +54,15 @@ const state = {
   sources: loadSources(), // Upload's Checks: { nppes, census }, true when that lookup may run
   effectiveDate: '', // Upload: YYYY-MM-DD for rows whose effective date is blank
   inputs: {}, // Upload: input field id → the value typed for every row (contract ID, sender email)
+  mode: loadMode(), // 'quick': run every step on every file and show Results; 'steps': open each file at Upload
+  files: [], // the files dropped together: { name, read() → sheets, status: waiting|running|done|error, results?, error? }
+  current: -1, // the file open in the steps, by index in `files`
+  progress: '', // Results: "Checking 12 of 40…" while a file runs
 };
+
+function loadMode() {
+  try { return localStorage.getItem(MODE_KEY) === 'steps' ? 'steps' : 'quick'; } catch { return 'quick'; }
+}
 
 // ─── Checks: which lookups may send data out ────────────────
 // Remembered in this browser; --no-nppes / --no-census override for the session. Storage can be
@@ -87,9 +98,12 @@ $('how-dialog').onclick = (e) => { if (e.target === $('how-dialog')) $('how-dial
 
 // ─── Steps ──────────────────────────────────────────────────
 function go(step) {
-  if (step !== 'upload' && !state.result) return;
+  if (step !== 'upload' && step !== 'results' && !state.result) return;
   state.step = step;
-  for (const s of STEPS) $(`step-${s}`).hidden = s !== step;
+  for (const s of [...STEPS, 'results']) $(`step-${s}`).hidden = s !== step;
+  $('nav').hidden = step === 'results';
+  $('filename').hidden = step === 'results' || !state.name;
+  $('run-all').disabled = !state.result || step === 'export';
   // Links, not buttons, so a portal's button styles don't turn the step bar into a row of buttons.
   $('steps').querySelectorAll('a[data-step]').forEach((a) => {
     a.toggleAttribute('aria-current', a.dataset.step === step);
@@ -123,20 +137,25 @@ async function boot() {
   if (session.mappingName) loadMapping(session.mappingName, await (await fetch('mapping')).arrayBuffer());
   // The CLI sends the roster already read and SSN-redacted, never the raw file.
   const revive = (_, v) => (v && typeof v === 'object' && '$date' in v ? new Date(v.$date) : v);
-  if (session.name) loadSheets(session.name, JSON.parse(await (await fetch('file')).text(), revive), session.sheet, session.headerRow);
-  else go('upload');
+  if (!session.name) return go('upload');
+  const sheets = JSON.parse(await (await fetch('file')).text(), revive);
+  state.files = [{ name: session.name, read: async () => sheets, status: 'waiting' }];
+  if (state.mode === 'quick') return quickRun();
+  state.current = 0;
+  loadSheets(session.name, sheets, session.sheet, session.headerRow);
 }
 boot().catch((e) => { document.querySelector('main').insertAdjacentHTML('afterbegin', `<p class="rm-note">Could not start: ${esc(e.message)}. Is the CLI still running?</p>`); });
 
-$('file').onchange = async (e) => { const f = e.target.files[0]; if (f) loadFile(f.name, await f.arrayBuffer()); };
+$('file').onchange = (e) => { addFiles([...e.target.files]); e.target.value = ''; };
+// A folder: its own files, not its subfolders' (as the CLI reads one).
+$('folder').onchange = (e) => { addFiles([...e.target.files].filter((f) => f.webkitRelativePath.split('/').length === 2)); e.target.value = ''; };
 const drop = $('drop');
 drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = async (e) => {
   e.preventDefault();
   drop.classList.remove('over');
-  const f = e.dataTransfer.files[0];
-  if (f) loadFile(f.name, await f.arrayBuffer());
+  addFiles(await droppedFiles(e.dataTransfer));
 };
 $('mapping').onchange = async (e) => {
   const f = e.target.files[0];
@@ -156,7 +175,7 @@ document.querySelectorAll('#step-standardize .view-switch button').forEach((b) =
 
 // readWorkbook removes SSNs as it reads, so they never reach the page's state or screen. A file it
 // can't read (password-protected, damaged) says so in the drop bar.
-function loadFile(name, bytes) {
+function loadFile(name, bytes, sheet) {
   let sheets;
   try { sheets = readWorkbook(bytes); } catch (e) {
     $('drop').classList.remove('loaded');
@@ -165,7 +184,7 @@ function loadFile(name, bytes) {
     $('file').value = '';
     return;
   }
-  loadSheets(name, sheets);
+  loadSheets(name, sheets, sheet);
 }
 
 function loadSheets(name, sheets, sheet, headerRow) {
@@ -186,7 +205,7 @@ function loadSheets(name, sheets, sheet, headerRow) {
   $('sheets').hidden = state.sheets.length < 2; // one sheet: nothing to pick; its row count goes in the drop bar
   $('sheets').querySelectorAll('button').forEach((b) => (b.onclick = () => pickSheet(b.dataset.sheet)));
   const first = state.sheets.find((s) => s.name === sheet) ?? state.sheets[0];
-  if (!first) return void ($('drop-hint').textContent = 'This file has no data. Drop or choose another.');
+  if (!first) { state.result = null; state.rows = []; $('drop-hint').textContent = 'This file has no data. Drop or choose another.'; return go('upload'); }
   if (state.sheets.length === 1) $('drop-hint').textContent = `${$('sheets').querySelector('small').textContent} · drop or click to replace`;
   pickSheet(first.name, headerRow);
 }
@@ -253,6 +272,8 @@ const overrides = () => ({ ...state.mapping?.overrides, ...state.edits });
 function render() {
   renderUpload();
   renderBanner();
+  renderFiles();
+  if (state.step === 'results') return renderResults();
   if (!state.result) return;
   ({ map: renderMap, standardize: renderStandardize, validate: renderValidate, review: renderReview, export: renderExport })[state.step]?.();
 }
@@ -260,7 +281,7 @@ function render() {
 // A one-line notice under the step bar when the sheet likely needs a transform (several addresses
 // per row, …). Detection only: the Transform step isn't built yet.
 function renderBanner() {
-  const hints = state.result?.transforms ?? [];
+  const hints = (state.step !== 'results' && state.result?.transforms) || [];
   const banner = $('transform-banner');
   banner.hidden = !hints.length;
   if (!hints.length) return;
@@ -1103,15 +1124,240 @@ function renderExport() {
       `<td class="issues">${r.issues.map((i) => `${esc(i.field)}: ${esc(i.message)}`).join('; ')}</td></tr>`).join('');
   $('export-more').textContent = records.length > shown.length ? `Showing the first ${shown.length} of ${records.length} records.` : '';
 }
+// text, or a file's bytes (a workbook, a zip)
 function download(text, type, name) {
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([text], { type })), download: name });
   a.click();
   URL.revokeObjectURL(a.href);
 }
 // Downloads are named RM_<file>_<sheet>.<ext>: "Q3 Roster.xlsx" / "LOC TERM" → RM_Q3Roster_LOCTERM.csv
+$('export-xlsx').onclick = () => download(toReport(state.name, [{ ...state.result, sheet: state.sheet }], { notes: { Checked: checkedWith() } }), XLSX, outputName(state.result.file, 'xlsx'));
 $('export-csv').onclick = () => download(toCsv(exported()), 'text/csv', outputName(state.result.file, 'csv'));
 $('export-issues').onclick = () => download(toIssuesCsv(state.result.records), 'text/csv', outputName(state.result.file, 'csv', '_issues'));
 $('export-json').onclick = () => download(JSON.stringify({ ...state.result, records: exported(), dropped: state.result.records.filter(isDropped) }, null, 2), 'application/json', outputName(state.result.file, 'json'));
+
+// ─── Files and Quick ────────────────────────────────────────
+// Several files (or a folder) dropped together are listed on the left. Quick runs every step on each
+// in turn, as the CLI does: Upload's options, the recommended mapping, Census addresses and NPPES legal
+// names applied, NPPES's verdicts as issues (see validateRecords). Results lists every sheet with what
+// moved forward and what was left out and why; each opens in the steps, to see or change what happened.
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const isRoster = (name) => /\.(xlsx|xls|csv)$/i.test(name) && !/^(~\$|\.|RM_)/.test(name);
+const api = async (url) => {
+  const res = await fetch(url);
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body.result;
+};
+const LOOKUP = {
+  npi: (n) => api(`api/nppes?npi=${n}`),
+  address: (line) => api(`api/census?address=${encodeURIComponent(line)}`),
+  byName: (q) => api(`api/nppes-name?${new URLSearchParams(q)}`),
+};
+const checkedWith = () => ['nppes', 'census'].filter((k) => state.sources[k]).map((k) => (k === 'nppes' ? 'NPPES' : 'Census')).join(', ') || 'no lookups';
+const two = (n) => String(n).padStart(2, '0');
+const timestamp = (d = new Date()) => `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
+
+function setMode(mode) {
+  state.mode = mode;
+  try { localStorage.setItem(MODE_KEY, mode); } catch { /* not remembered */ }
+  $('mode').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
+}
+setMode(state.mode);
+$('mode').onclick = (e) => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); };
+
+// Files and folders dropped: a folder's own files, not its subfolders'. Entries must be taken before any await.
+async function droppedFiles(dt) {
+  const entries = [...dt.items].map((i) => i.webkitGetAsEntry?.()).filter(Boolean);
+  if (!entries.length) return [...dt.files];
+  const file = (entry) => new Promise((done, fail) => entry.file(done, fail));
+  const files = [];
+  for (const entry of entries) {
+    if (entry.isFile) files.push(await file(entry));
+    else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      for (let batch; (batch = await new Promise((done, fail) => reader.readEntries(done, fail))).length; ) {
+        for (const e of batch) if (e.isFile) files.push(await file(e));
+      }
+    }
+  }
+  return files;
+}
+
+// New files replace the old ones. Quick runs them all; Step by step opens the first at Upload.
+function addFiles(list) {
+  const files = list.filter((f) => isRoster(f.name)).sort((a, b) => a.name.localeCompare(b.name));
+  if (!files.length) {
+    if (list.length) { $('drop-title').textContent = 'No roster files there'; $('drop-hint').textContent = 'xlsx, xls or csv'; }
+    return;
+  }
+  state.files = files.map((f) => ({ name: f.name, read: async () => readWorkbook(await f.arrayBuffer()), status: 'waiting' }));
+  if (state.mode === 'steps') return openFile(0, undefined, 'upload');
+  closeFile();
+  $('drop').classList.add('loaded');
+  $('private-note').hidden = true;
+  $('drop-title').textContent = files.length === 1 ? files[0].name : plural(files.length, 'file');
+  $('drop-hint').textContent = 'drop or click to replace';
+  quickRun();
+}
+
+// No file open in the steps (Results shows them all).
+function closeFile() {
+  Object.assign(state, { result: null, rows: [], name: '', sheet: '', current: -1 });
+  $('raw-wrap').hidden = true;
+  $('sheets').hidden = true;
+  $('filename').hidden = true;
+  document.title = 'Roster Mapper';
+}
+
+// Open one of the files in the steps, at a sheet: at Map from Results, at Upload in Step by step.
+async function openFile(i, sheet, step = 'map') {
+  const f = state.files[i];
+  let sheets;
+  try { sheets = await f.read(); } catch (e) {
+    Object.assign(f, { status: 'error', error: e.message });
+    closeFile();
+    $('drop').classList.remove('loaded');
+    $('drop-title').textContent = `Can't open ${f.name}`;
+    $('drop-hint').textContent = e.message;
+    return go('upload');
+  }
+  state.current = i;
+  state.step = step;
+  loadSheets(f.name, sheets, sheet);
+}
+
+// Every step on every file, one file at a time (lookups 4 at a time). A newer run stops an older one.
+async function quickRun() {
+  const token = (state.runToken = {});
+  for (const f of state.files) Object.assign(f, { status: 'waiting', results: undefined, error: undefined });
+  closeFile();
+  go('results');
+  for (const f of state.files) {
+    if (state.runToken !== token) return;
+    f.status = 'running';
+    render();
+    try {
+      const sheets = (await f.read()).filter((s) => s.rows.length);
+      const options = (sheetName) => ({
+        fileName: f.name, sheetName, overrides: state.mapping?.overrides ?? {}, constants: { ...state.inputs },
+        ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
+      });
+      const results = sheets.map((s) => ({ sheet: s.name, ...automap(s.rows, options(s.name)) })).filter((r) => r.records.length);
+      if (!results.length) throw new Error('No data in this file.');
+      await validateRecords(results.flatMap((r) => r.records), state.sources, LOOKUP, {
+        lookups: state.lookups,
+        progress: (done, total) => {
+          state.progress = `${f.name}: checking ${done} of ${total}…`;
+          if (state.step === 'results') $('results-summary').textContent = state.progress;
+        },
+      });
+      Object.assign(f, { status: 'done', results });
+    } catch (e) {
+      Object.assign(f, { status: 'error', error: e.message });
+    }
+    state.progress = '';
+    if (state.runToken === token) render();
+  }
+}
+
+const counts = (records) => {
+  const out = records.filter(isDropped).length;
+  return { rows: records.length, kept: records.length - out, out, issues: records.filter((r) => r.issues.some((i) => i.kind !== 'default')).length };
+};
+const who = (r) => [r.values['provider.last_name'], r.values['provider.first_name']].filter(Boolean).join(', ') || r.values['billing.legal_name'] || '';
+
+function renderFiles() {
+  const many = state.files.length > 1;
+  $('files').hidden = !many;
+  if (!many) return;
+  $('files-results').classList.toggle('on', state.step === 'results');
+  const status = (f) => {
+    if (f.status === 'error') return f.error;
+    if (f.status !== 'done') return f.status === 'running' ? 'running…' : '';
+    const c = counts(f.results.flatMap((r) => r.records));
+    return `${c.kept} in · ${c.out} out`;
+  };
+  $('file-list').innerHTML = state.files.map((f, i) =>
+    `<li><a href="#" data-file="${i}" class="${i === state.current && state.step !== 'results' ? 'on' : ''}">${esc(f.name)}</a>` +
+    `<small class="${f.status === 'error' ? 'bad' : ''}">${esc(status(f))}</small></li>`).join('');
+}
+$('file-list').onclick = (e) => { const a = e.target.closest('[data-file]'); if (a) { e.preventDefault(); openFile(+a.dataset.file, undefined, state.mode === 'steps' ? 'upload' : 'map'); } };
+$('files-results').onclick = (e) => { e.preventDefault(); if (state.files.some((f) => f.status !== 'waiting')) go('results'); else quickRun(); };
+
+function renderResults() {
+  const sheets = state.files.flatMap((f, i) => (f.results ?? []).map((r, j) => ({ f, i, r, j })));
+  const all = counts(sheets.flatMap(({ r }) => r.records));
+  const pending = state.files.filter((f) => f.status === 'waiting' || f.status === 'running').length;
+  $('results-summary').textContent = state.progress ||
+    [plural(state.files.length, 'file'), plural(all.rows, 'row'), `${all.kept} moved forward`, `${all.out} left out`].join(' · ') + (pending ? ` · ${pending} to go…` : '');
+  $('download-all').disabled = !sheets.length || pending > 0;
+  $('download-all').textContent = sheets.length === 1 && !state.files.some((f) => f.error) ? 'Download workbook' : 'Download all';
+  $('rerun').hidden = pending > 0;
+
+  const num = (n) => `<td class="num">${n}</td>`;
+  $('results').innerHTML = '<tr><th>File</th><th>Sheet</th><th>Action</th><th class="num">Rows</th><th class="num">Moved forward</th><th class="num">Left out</th><th class="num">With issues</th><th></th></tr>' +
+    state.files.map((f, i) => {
+      if (f.status !== 'done') return `<tr><td>${esc(f.name)}</td><td colspan="7" class="${f.status === 'error' ? 'bad' : 'muted'}">${esc(f.error ?? (f.status === 'running' ? 'running…' : 'waiting'))}</td></tr>`;
+      return f.results.map((r, j) => {
+        const c = counts(r.records);
+        return `<tr><td><a href="#" data-open="${i}" data-sheet="${esc(r.sheet)}" title="Open in the steps">${esc(f.name)}</a></td><td>${esc(r.sheet)}</td><td>${esc(r.action.action)}</td>` +
+          `${num(c.rows)}${num(c.kept)}${num(c.out)}${num(c.issues)}<td><button type="button" class="textlink" data-dl="${i}|${j}" title="${esc(outputName(r.file, 'xlsx'))}">xlsx</button></td></tr>`;
+      }).join('');
+    }).join('');
+
+  const line = ({ f, i, r }, x, ...cells) => `<tr><td><a href="#" data-open="${i}" data-sheet="${esc(r.sheet)}">${esc(f.name)}</a></td><td>${esc(r.sheet)}</td><td class="muted">${x.row}</td><td class="nowrap">${esc(who(x))}</td>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`;
+  const leftOut = sheets.flatMap((s) => s.r.records.filter(isDropped).map((x) => line(s, x, x.issues.filter((i) => i.drop).map((i) => `${esc(i.field)}: ${esc(i.message.replace(/; row dropped$/, ''))}`).join('<br>'))));
+  const issues = sheets.flatMap((s) => s.r.records.flatMap((x) => x.issues.filter((i) => !i.drop && i.kind !== 'default').map((i) => line(s, x, esc(i.field), `<span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.message)}`))));
+  const MAX = 500;
+  const more = (n) => (n > MAX ? `<tr><td colspan="6" class="muted">… ${n - MAX} more in the workbooks</td></tr>` : '');
+  $('left-out-title').textContent = `Left out (${leftOut.length})`;
+  $('left-out').innerHTML = '<tr><th>File</th><th>Sheet</th><th>Row</th><th>Name</th><th>Why</th></tr>' + (leftOut.slice(0, MAX).join('') || '<tr><td colspan="5" class="muted">None.</td></tr>') + more(leftOut.length);
+  $('issues-title').textContent = `Issues (${issues.length})`;
+  $('all-issues').innerHTML = '<tr><th>File</th><th>Sheet</th><th>Row</th><th>Name</th><th>Field</th><th>Issue</th></tr>' + (issues.slice(0, MAX).join('') || '<tr><td colspan="6" class="muted">None.</td></tr>') + more(issues.length);
+}
+
+$('step-results').onclick = (e) => {
+  const open = e.target.closest('[data-open]');
+  if (open) { e.preventDefault(); return openFile(+open.dataset.open, open.dataset.sheet); }
+  const dl = e.target.closest('[data-dl]');
+  if (dl) {
+    const [i, j] = dl.dataset.dl.split('|').map(Number);
+    const f = state.files[i];
+    const r = f.results[j];
+    download(toReport(f.name, [r], { notes: { Checked: checkedWith() } }), XLSX, outputName(r.file, 'xlsx'));
+  }
+};
+$('rerun').onclick = () => quickRun();
+
+// One workbook per sheet, named as the CLI names them; several go in a zip with summary.xlsx (a
+// browser can't save a folder): RM_20261117-143005.zip.
+$('download-all').onclick = () => {
+  const notes = { Checked: checkedWith() };
+  const books = state.files.flatMap((f) => (f.results ?? []).map((r) => ({ f, r })));
+  if (books.length === 1 && !state.files.some((f) => f.error)) return download(toReport(books[0].f.name, [books[0].r], { notes }), XLSX, outputName(books[0].r.file, 'xlsx'));
+  const used = new Set();
+  const unique = (name) => { let n = name; for (let k = 2; used.has(n); k++) n = name.replace(/\.xlsx$/, `_${k}.xlsx`); used.add(n); return n; };
+  const files = [];
+  const entries = [];
+  for (const f of state.files) {
+    if (f.error) entries.push({ file: f.name, sheet: '', error: f.error });
+    for (const r of f.results ?? []) {
+      const name = unique(outputName(r.file, 'xlsx'));
+      files.push({ name, bytes: toReport(f.name, [r], { notes }) });
+      entries.push(sheetEntry(f.name, r, name));
+    }
+  }
+  download(toZip([{ name: 'summary.xlsx', bytes: toBatchSummary(entries) }, ...files]), 'application/zip', `RM_${timestamp()}.zip`);
+};
+
+// Step by step: finish this file from wherever you are (lookups, trusted fixes) and go to Export.
+$('run-all').onclick = async () => {
+  if (!state.result) return;
+  $('run-all').disabled = true;
+  if (!state.checked) { state.checked = true; await runChecks(); }
+  go('export');
+};
 
 // ─── Preview: providers ↔ locations ↔ billing ───────────────
 const KINDS = ['provider', 'practice', 'billing'];

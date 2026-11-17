@@ -2,7 +2,7 @@
 // (Validate's "Run checks") and the CLI (--no-ui), so both drop and flag the same rows. Pure: the
 // answers are fetched elsewhere (see lookup.ts in the CLI, the local server in the UI).
 import { addressLine, censusChecks, nppesBillingChecks, nppesProviderChecks, wantsNameSearch, type CensusMatch, type Check, type CheckStatus, type NppesRecord } from './validate';
-import type { Issue } from './records';
+import type { Issue, RosterRecord } from './records';
 
 /** A lookup that failed: the source didn't answer. */
 export interface LookupError {
@@ -107,6 +107,62 @@ export function checkIssues(checks: ReadonlyMap<string, readonly Check[]>): Issu
 		}
 	}
 	return issues;
+}
+
+/** Where validateRecords gets its answers: NPPES and Census, live (lookup.ts) or through the UI's local server. Each throws when its source doesn't answer. */
+export interface LookupFns {
+	npi(npi: string): Promise<NppesRecord | null>;
+	address(line: string): Promise<CensusMatch | null>;
+	byName(query: NameQuery): Promise<NppesRecord[]>;
+}
+
+/**
+ * Validate records in one go, as the CLI and the UI's quick run do: look up every NPI and address
+ * (4 at a time), then search NPPES by name for providers whose NPI is under another last name. Apply
+ * what's trusted (Census addresses, NPPES legal names), and add the checks' failures and warnings to
+ * each record's issues. Pass `lookups` to reuse answers from earlier files; ones that failed are asked
+ * again. Changes the records in place; resolves to the answers.
+ */
+export async function validateRecords(
+	records: RosterRecord[],
+	on: Sources,
+	lookup: LookupFns,
+	{ lookups = { nppes: new Map(), census: new Map(), names: new Map() }, progress }: { lookups?: Lookups; progress?: (done: number, total: number) => void } = {},
+): Promise<Lookups> {
+	if (!records.length || (!on.nppes && !on.census)) return lookups;
+	const names = (lookups.names ??= new Map());
+	const answer = <T>(p: Promise<T>) => p.catch((e: Error) => ({ error: e.message }));
+	const known = (map: Map<string, unknown>, key: string) => map.has(key) && !failed(map.get(key));
+	const runAll = async (jobs: (() => Promise<void>)[]) => {
+		let done = 0;
+		const total = jobs.length;
+		await Promise.all(Array.from({ length: 4 }, async () => {
+			for (let job; (job = jobs.shift()); ) {
+				await job();
+				progress?.(++done, total);
+			}
+		}));
+	};
+	const { npis, lines } = lookupTargets(records.map((r) => r.values));
+	await runAll([
+		...(on.nppes ? [...npis] : []).filter((n) => !known(lookups.nppes, n)).map((n) => async () => void lookups.nppes.set(n, await answer(lookup.npi(n)))),
+		...(on.census ? [...lines] : []).filter((l) => !known(lookups.census, l)).map((l) => async () => void lookups.census.set(l, await answer(lookup.address(l)))),
+	]);
+	if (on.nppes) {
+		const searches = nameSearches(records.map((r) => r.values), lookups).filter((q) => !known(names, nameKey(q)));
+		await runAll(searches.map((q) => async () => void names.set(nameKey(q), await answer(lookup.byName(q)))));
+	}
+	for (const record of records) {
+		const checks = recordChecks(record.values, lookups, on);
+		const fixes = autoFixes(checks);
+		for (const [field, value] of Object.entries(fixes)) {
+			record.values[field] = value;
+			checks.delete(field);
+		}
+		record.issues = record.issues.filter((i) => !(i.field in fixes && (i.kind === 'missing' || i.kind === 'format')));
+		record.issues.push(...checkIssues(checks));
+	}
+	return lookups;
 }
 
 /** Suggestions applied without asking (Census city, state, ZIP and suite; NPPES legal names): field → value. */

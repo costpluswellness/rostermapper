@@ -18,7 +18,10 @@ Provider rosters come in various shapes and formats. Roster Mapper turns any ros
 
 ## 0. File Upload 
 
-- Drop a file (xlsx, xls or csv) and pick a sheet, if it has several. The file is read on your machine. SSN columns and any SSN-shaped value are removed as it's read; they're never shown, kept or exported.
+- Drop one or more files (xlsx, xls or csv), or a folder of them ("Open a folder" picks one). Files are read on your machine.
+- **Quick** (the default) runs every step on every file with the recommended options: the settings below, the best mapping, Census addresses and NPPES legal names applied, and NPPES's verdicts as issues, the same as the CLI. **Results** lists each sheet with its rows moved forward, left out and with issues, then every row left out and why, and every issue. Each sheet downloads as a workbook; "Download all" gives a zip of them with `summary.xlsx`. Several files are listed on the left; click one (or its name in Results) to open it in the steps and see or change what happened.
+- **Step by step** opens each file at Upload instead, to pick a sheet and go through the steps. "Run all steps" finishes a file from wherever you are.
+- In the steps, pick a sheet if the file has several. SSN columns and any SSN-shaped value are removed as it's read; they're never shown, kept or exported.
 - *Optionally*, set the action (`ADD`, `UPDATE` or `TERM`). Otherwise it's detected from an action column, then the sheet name, then the file name.
 - *Optionally*, load a mapping file: a CSV of `column,field` lines that override matching for specific headers, so a sender's quirks are fixed once and reused. `ignore` skips a column. The Map step can save one with "Download mapping file".
   ```
@@ -85,7 +88,7 @@ Every row left out goes to an issues file, `RM_<file>_<sheet>_issues.csv` ("Down
 A table of every unique provider × practice location × billing entity combination with the rows that describe it (default), or a graph with lines between them. Below it, every issue by row: required fields missing for the row's action, values that couldn't be cleaned, values that failed validation. Required fields per action: see [Canonical fields](docs/canonical_fields.md).
 
 ## 6. Export
-Export one record per data row as `csv` or `json`. CSV columns: the file fields, the network fields (action, effective date, …), then provider, practice and billing fields, then `issues`. Fields marked hidden in the schema (CAQH ID, email, website, location type, BH, note) are left out unless a record has a value for them.
+Download a workbook with the whole result (Summary, Mapping, Data, Issues and Left out tabs), or one record per data row as `csv` or `json`. CSV columns: the file fields, the network fields (action, effective date, …), then provider, practice and billing fields, then `issues`. Fields marked hidden in the schema (CAQH ID, email, website, location type, BH, note) are left out unless a record has a value for them.
 
 The file fields are set once per sheet and written into every record. They're not shown in the UI.
 
@@ -150,7 +153,7 @@ node dist/cli.js roster.xlsx
 Fields live in `schema/fields.yaml`: type, description, format, required and preferred actions, aliases. After editing it run `pnpm schema`, which regenerates `src/schema.generated.ts` and [docs/canonical_fields.md](docs/canonical_fields.md); CI fails if either is stale. Taxonomy codes come from NUCC's CSV via `pnpm nucc`.
 
 # Development
-`dev/rmap <file> [options]` runs the CLI straight from `src/`, no build and no pnpm: every edit shows on the next run, in about half a second. Link it onto your PATH once to run it from any folder: `ln -s "$PWD/dev/rmap" ~/.local/bin/rmap`, then `rmap roster.xlsx`. `pnpm cli` does the same, a second slower. Both need `pnpm install` once (for tsx). The UI still needs `pnpm build`, since it's served from `dist/ui/`. `pnpm check` runs the schema check, typecheck and build (CI runs the same). Put real rosters in `samples/`, which is git-ignored: they hold provider PII and must never be committed.
+`dev/rmap <file> [options]` runs the CLI straight from `src/`, no build and no pnpm: every edit shows on the next run, in about half a second. Link it onto your PATH once to run it from any folder: `ln -s "$PWD/dev/rmap" ~/.local/bin/rmap`, then `rmap roster.xlsx`. `pnpm cli` does the same, a second slower. Both need `pnpm install` once (for tsx). The UI's page is served from `dist/ui/`, so after changing `site/` or `src/`, run `pnpm build`, then `rmap` (no file) or `rmap roster.xlsx --ui`, and reload the page. `pnpm check` runs the schema check, typecheck and build (CI runs the same). Put real rosters in `samples/`, which is git-ignored: they hold provider PII and must never be committed.
 
 # TODO
 - [ ] create the [1. Transform (not implemented yet)](#1-transform-not-implemented-yet) step
