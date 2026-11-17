@@ -3,7 +3,7 @@
 import { RANK, applyDropRules, checkIssues, lookupAll, lookupTargets, recordChecks } from '../rostermapper.js';
 import { $, LOOKUP, esc, plural } from '../lib.js';
 import { SOURCE_NAME, state } from '../state.js';
-import { run, setSource, status } from '../app.js';
+import { go, render, run, setSource, status } from '../app.js';
 import { srcOf } from './entities.js';
 // Only outside sources: NPPES and Census lookups, through the CLI's server (checks a value can fail
 // on its own, like the NPI check digit, are Standardize's). A suggestion can be accepted per cell ("Use"); accepted
@@ -36,33 +36,46 @@ export function applyValidation() {
 // when the source suggests a value.
 const ACRONYMS = { npi: 'NPI', tax_id: 'Tax ID', zip: 'ZIP', address_1: 'Address', address_2: 'Address line 2', taxonomy_1: 'Taxonomy', taxonomy_2: 'Taxonomy 2', legal_name: 'Legal name', license_number: 'License', first_name: 'First name', middle_name: 'Middle name', last_name: 'Last name' };
 const LABEL = (f) => { const n = f.split('.')[1]; return ACRONYMS[n] ?? n[0].toUpperCase() + n.slice(1).replace(/_/g, ' '); };
-const MARK = { ok: '✓', suggest: '⚠', warn: '⚠', fail: '✕', skip: '·' };
+export const MARK = { ok: '✓', suggest: '⚠', warn: '⚠', fail: '✕', skip: '·' };
+// The NPPES NPI Registry's page for an NPI, linked from every NPI on a card.
+export const npiUrl = (npi) => `https://npiregistry.cms.hhs.gov/provider-view/${encodeURIComponent(npi)}`;
 // A line alternates fields and separators: [F(a), ' · ', F(b)]. A field may carry a label (F(f, 'NPI ')).
 // Empty fields drop out with their separator; a line with no values is dropped.
 const F = (f, pre = '') => ({ f, pre });
-const CARD_KINDS = [
-  ['provider', 'Providers', () => state.entities.providers, {
+const none = (text) => `<span class="none">${text}</span>`;
+// Per kind: the fields checked, the card's title and lines, and what to say when a key value is missing.
+const CARD = {
+  provider: {
     fields: ['provider.npi', 'provider.first_name', 'provider.middle_name', 'provider.last_name', 'provider.degree', 'provider.gender', 'provider.taxonomy_1', 'provider.taxonomy_2', 'provider.license_number'],
     title: () => [F('provider.first_name'), ' ', F('provider.middle_name'), ' ', F('provider.last_name'), ', ', F('provider.degree')],
     lines: () => [[F('provider.npi', 'NPI ')], [F('provider.gender'), ' · ', F('provider.taxonomy_1'), ' · ', F('provider.taxonomy_2')], [F('provider.license_number', 'License ')]],
-  }],
-  ['practice', 'Practice locations', () => state.entities.locations, {
+    missing: (v) => [!v['provider.npi'] && 'No NPI', !v['provider.taxonomy_1'] && 'No taxonomy'],
+  },
+  practice: {
     fields: ['practice.address_1', 'practice.city', 'practice.state', 'practice.zip'],
     title: (v) => [v['practice.location_name'] || v['practice.dba'] || 'Practice location'],
     lines: () => addressLines('practice'),
-  }],
-  ['billing', 'Billing', () => state.entities.billing, {
+    missing: (v) => [!v['practice.address_1'] && 'No address'],
+  },
+  billing: {
     fields: ['billing.legal_name', 'billing.tax_id', 'billing.npi', 'billing.address_1', 'billing.city', 'billing.state', 'billing.zip'],
-    title: (v) => [v['billing.legal_name'] ? F('billing.legal_name') : 'Billing entity'],
+    title: (v) => [v['billing.legal_name'] ? F('billing.legal_name') : 'No legal name'],
     lines: () => [[F('billing.tax_id', 'TIN '), ' · ', F('billing.npi', 'NPI ')], ...addressLines('billing')],
-  }],
+    missing: () => [],
+  },
+};
+const CARD_KINDS = [
+  ['provider', 'Providers', () => state.entities.providers],
+  ['practice', 'Practice locations', () => state.entities.locations],
+  ['billing', 'Billing', () => state.entities.billing],
 ];
 const addressLines = (p) => [[F(`${p}.address_1`)], [F(`${p}.address_2`)], [F(`${p}.city`), ', ', F(`${p}.state`), ' ', F(`${p}.zip`)]];
 const CARDS_SHOWN = 20;
+const problem = (s) => s === 'fail' || s === 'suggest' || s === 'warn';
 
 function renderLine(parts, values, marks) {
-  if (parts.length === 1 && typeof parts[0] === 'string') return esc(parts[0]);
-  // Segments of [text, mark]; neighbouring values with the same result share one highlight.
+  if (parts.length === 1 && typeof parts[0] === 'string') return parts[0] === 'No legal name' ? none(parts[0]) : esc(parts[0]);
+  // Segments of [text, mark, link]; neighbouring values with the same result share one highlight.
   const segs = [];
   let sep = '';
   for (const p of parts) {
@@ -70,68 +83,126 @@ function renderLine(parts, values, marks) {
     const value = values[p.f];
     if (!value) continue;
     const m = marks.get(p.f)?.status === 'skip' ? undefined : marks.get(p.f);
+    const link = p.f.endsWith('.npi') && /^\d{10}$/.test(value) ? npiUrl(value) : '';
     const last = segs.at(-1);
-    if (last && !p.pre && last[1]?.status === m?.status) { last[0] += sep + value; if (m) last[1].tip += `\n${m.tip}`; }
-    else { if (last) segs.push([sep, undefined]); if (p.pre) segs.push([p.pre, undefined]); segs.push([value, m && { ...m }]); }
+    if (last && !p.pre && !link && !last[2] && last[1]?.status === m?.status) { last[0] += sep + value; if (m) last[1].tip += `\n${m.tip}`; }
+    else { if (last) segs.push([sep, undefined]); if (p.pre) segs.push([p.pre, undefined]); segs.push([value, m && { ...m }, link]); }
   }
-  return segs.map(([t, m]) => (m ? `<span class="v ${m.status}" title="${esc(m.tip)}">${esc(t)}</span>` : esc(t))).join('');
+  return segs.map(([t, m, link]) => (m ? `<span class="v ${m.status}" title="${esc(m.tip)}">${esc(t)}</span>` : esc(t)) +
+    (link ? ` <a class="ext" href="${link}" target="_blank" rel="noopener" title="Open in the NPPES NPI Registry">↗</a>` : '')).join('');
 }
 
+// One entity's checks: its values (first non-empty per field, as elsewhere), each checked field's
+// check or accepted suggestion, its worst status, and a highlight per value. Values Standardize
+// couldn't clean are highlighted too, so one card shows both steps.
+function entityChecks(kind, entity) {
+  const card = CARD[kind];
+  const values = {};
+  const items = [];
+  for (const f of [...card.fields, `${kind}.address_2`, `${kind}.location_name`, `${kind}.dba`]) {
+    const r = srcOf(entity, f)?.clean;
+    values[f] = r?.values[f] ?? '';
+    if (!card.fields.includes(f) || !r) continue;
+    const acc = state.accepted.get(r.row)?.get(f);
+    const check = state.checks.get(r.row)?.get(f)?.[0];
+    if (acc || check) items.push({ f, row: r.row, value: values[f], acc, check });
+  }
+  const status = items.reduce((worst, i) => (i.acc ? worst : !worst || RANK[i.check.status] < RANK[worst] ? i.check.status : worst), null);
+  const marks = new Map(items.map((i) => [i.f, i.acc
+    ? { status: 'ok', tip: i.acc.auto ? `${i.acc.source}: ${changeText(i)}` : `Accepted from ${i.acc.source}` }
+    : { status: i.check.status, tip: `${i.check.source}: ${i.check.detail}` }]));
+  for (const [f, a] of state.accepted.get(entity.rows[0]) ?? []) if (a.with) marks.set(f, { status: 'ok', tip: `Accepted from ${a.source}` });
+  const formats = [];
+  for (const f of card.fields) {
+    const issue = srcOf(entity, f)?.clean.issues.find((i) => i.field === f && i.kind === 'format');
+    if (issue && !marks.get(f)) { marks.set(f, { status: 'fail', tip: issue.message }); formats.push({ f, issue }); }
+  }
+  return { values, items, status: formats.length ? 'fail' : status, marks, formats };
+}
+
+/**
+ * One entity as a card: { mark, head, lines, fixes }, all HTML. The mark is its worst check (hover
+ * for all); fixes are the problems, each with "Use" when the source suggests a value. Shared by
+ * Validate's cards and Review's table and graph.
+ */
+export function entityCard(kind, entity) {
+  const card = CARD[kind];
+  const { values, items, status, marks, formats } = entityChecks(kind, entity);
+  const hover = [...items.map((i) => i.acc ? `✓ ${LABEL(i.f)}: accepted from ${i.acc.source}` : `${MARK[i.check.status]} ${LABEL(i.f)}: ${i.check.detail}`),
+    ...formats.map(({ f, issue }) => `✕ ${LABEL(f)}: ${issue.message}`)].join('\n');
+  const mark = status ? `<span class="mark ${status}" title="${esc(hover)}">${MARK[status]}</span>` : '';
+  // Changes applied on their own (Census addresses, NPPES legal names): folded under "N changes from …", each with its old value.
+  const auto = items.filter((i) => i.acc?.auto);
+  const key = entity.rows.join(',');
+  const changes = auto.length ? `<li class="auto"><button class="textlink small" data-changes="${key}" title="${esc(auto.map((i) => `${LABEL(i.f)}: ${changeText(i)}`).join('\n'))}">${state.showChanges.has(key) ? '▾' : '▸'} ${plural(auto.length, 'change')} from ${[...new Set(auto.map((i) => i.acc.source))].join(' and ')}</button>` +
+    (state.showChanges.has(key) ? `<ul>${auto.map((i) => `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(changeText(i))} <button class="textlink small" data-undo="${i.f}" data-rows="${key}">undo</button></li>`).join('')}</ul>` : '') + '</li>' : '';
+  const fixes = changes + items.filter((i) => !i.acc?.auto && (i.acc || problem(i.check?.status))).map((i) => {
+    if (i.acc) return `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(i.value)} <span class="muted">accepted</span> <button class="textlink small" data-undo="${i.f}" data-rows="${key}">undo</button></li>`;
+    return problemItem(i.f, i.value, i.check, entity.rows);
+  }).join('') + formats.map(({ f, issue }) => `<li class="fail"><span class="muted">${LABEL(f)}:</span> ${esc(issue.message)} <button class="textlink small" data-goto="standardize" title="Fix it by hand on Standardize">edit</button></li>`).join('');
+  const lines = card.lines(values).map((l) => renderLine(l, values, marks)).filter(Boolean);
+  const head = renderLine(card.title(values), values, marks) || lines.shift() || '';
+  const missing = card.missing(values).filter(Boolean);
+  if (missing.length) lines.push(none(missing.join(' · ')));
+  return { mark, head, lines, fixes, status };
+}
+
+// One problem a source found, with "Use" when it suggests a value. Also used by Review's issues.
+export function problemItem(f, value, c, rows) {
+  if (c.suggestion !== undefined && (c.status === 'suggest' || c.status === 'fail')) {
+    const also = Object.entries(c.also ?? {});
+    const theirs = also.length ? [c.suggestion, ...also.map(([, v]) => v)].join(' / ') : c.suggestion;
+    // A failure (the NPI belongs to someone else) says why before offering the fix.
+    const why = c.status === 'fail' ? `${esc(c.detail)}<br>` : '';
+    return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}">${why}<span class="muted">${LABEL(f)}:</span> ${esc(value) || '<span class="muted">blank</span>'} → <b>${esc(theirs)}</b> ` +
+      `<button class="use" data-use="${f}" data-rows="${rows.join(',')}" data-value="${esc(c.suggestion)}" data-also="${esc(JSON.stringify(c.also ?? {}))}" data-source="${esc(c.source)}">Use</button></li>`;
+  }
+  return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}"><span class="muted">${LABEL(f)}:</span> ${esc(c.detail)}</li>`;
+}
+
+/** Clicks on a card's buttons (Use, undo, changes, edit), wherever the card is drawn. True when handled. */
+export function onCardClick(e, rerender) {
+  const b = e.target.closest('[data-use], [data-undo], [data-changes], [data-goto]');
+  if (!b) return false;
+  e.stopPropagation();
+  if (b.dataset.goto) { go(b.dataset.goto); return true; }
+  if (b.dataset.changes) {
+    const k = b.dataset.changes;
+    if (!state.showChanges.delete(k)) state.showChanges.add(k);
+    rerender();
+    return true;
+  }
+  if (b.dataset.use) {
+    accept(b.dataset.rows.split(',').map(Number), b.dataset.use, b.dataset.value, JSON.parse(b.dataset.also || '{}'), b.dataset.source);
+    run();
+    return true;
+  }
+  for (const row of b.dataset.rows.split(',').map(Number)) {
+    const acc = state.accepted.get(row);
+    if (acc?.get(b.dataset.undo)?.auto) state.declined.add(`${row}|${b.dataset.undo}`);
+    acc?.delete(b.dataset.undo);
+    for (const [f, a] of acc ?? []) if (a.with === b.dataset.undo) acc.delete(f);
+  }
+  run();
+  return true;
+}
+
+// Cards: one per provider, location and billing entity, in its colour, showing only the values that
+// get checked. Each checked value is highlighted with its result (hover for the source).
 export function renderValidate() {
-  const problem = (s) => s === 'fail' || s === 'suggest' || s === 'warn';
   const pending = new Map(); // source → suggestions not yet accepted, for "Use all"
-  $('validated').innerHTML = CARD_KINDS.map(([kind, title, list, card]) => {
+  $('validated').innerHTML = CARD_KINDS.map(([kind, title, list]) => {
     const all = list().map((entity) => {
-      // The entity's values (first non-empty per field, as elsewhere) and each field's check.
-      const values = {};
-      const items = [];
-      for (const f of [...card.fields, `${kind}.address_2`, `${kind}.location_name`, `${kind}.dba`]) {
-        const r = srcOf(entity, f)?.clean;
-        values[f] = r?.values[f] ?? '';
-        if (!card.fields.includes(f) || !r) continue;
-        const acc = state.accepted.get(r.row)?.get(f);
-        const check = state.checks.get(r.row)?.get(f)?.[0];
-        if (acc || check) items.push({ f, row: r.row, value: values[f], acc, check });
-      }
-      const status = items.reduce((worst, i) => (i.acc ? worst : !worst || RANK[i.check.status] < RANK[worst] ? i.check.status : worst), null);
-      for (const { f, acc, check: c } of items) if (!acc && c.status === 'suggest' && !c.keep) pending.set(c.source, [...(pending.get(c.source) ?? []), { f, rows: entity.rows, value: c.suggestion, also: c.also ?? {} }]);
-      return { entity, values, items, status };
+      const c = entityCard(kind, entity);
+      for (const { f, acc, check } of entityChecks(kind, entity).items) if (!acc && check.status === 'suggest' && !check.keep) pending.set(check.source, [...(pending.get(check.source) ?? []), { f, rows: entity.rows, value: check.suggestion, also: check.also ?? {} }]);
+      return c;
     });
     const cards = all.filter((c) => !state.onlyProblems || problem(c.status));
     if (!cards.length) return '';
     const open = state.expanded.has(`v-${kind}`);
     const shown = open ? cards : cards.slice(0, CARDS_SHOWN);
-    const rows = (e) => e.rows.join(',');
-    const html = shown.map(({ entity, values, items, status }) => {
-      const hover = items.map((i) => i.acc ? `✓ ${LABEL(i.f)}: accepted from ${i.acc.source}` : `${MARK[i.check.status]} ${LABEL(i.f)}: ${i.check.detail}`).join('\n');
-      const mark = status ? `<span class="mark ${status}" title="${esc(hover)}">${MARK[status]}</span>` : '';
-      // Highlights: every checked value, coloured by its result; hover names the source.
-      const marks = new Map(items.map((i) => [i.f, i.acc
-        ? { status: 'ok', tip: i.acc.auto ? `${i.acc.source}: ${changeText(i)}` : `Accepted from ${i.acc.source}` }
-        : { status: i.check.status, tip: `${i.check.source}: ${i.check.detail}` }]));
-      for (const [f, a] of state.accepted.get(entity.rows[0]) ?? []) if (a.with) marks.set(f, { status: 'ok', tip: `Accepted from ${a.source}` });
-      // Changes applied on their own (Census addresses, NPPES legal names): folded under "N changes from …", each with its old value.
-      const auto = items.filter((i) => i.acc?.auto);
-      const key = rows(entity);
-      const changes = auto.length ? `<li class="auto"><button class="textlink small" data-changes="${key}" title="${esc(auto.map((i) => `${LABEL(i.f)}: ${changeText(i)}`).join('\n'))}">${state.showChanges.has(key) ? '▾' : '▸'} ${plural(auto.length, 'change')} from ${[...new Set(auto.map((i) => i.acc.source))].join(' and ')}</button>` +
-        (state.showChanges.has(key) ? `<ul>${auto.map((i) => `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(changeText(i))} <button class="textlink small" data-undo="${i.f}" data-rows="${key}">undo</button></li>`).join('')}</ul>` : '') + '</li>' : '';
-      const fixes = changes + items.filter((i) => !i.acc?.auto && (i.acc || problem(i.check?.status))).map((i) => {
-        if (i.acc) return `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(i.value)} <span class="muted">accepted</span> <button class="textlink small" data-undo="${i.f}" data-rows="${rows(entity)}">undo</button></li>`;
-        const c = i.check;
-        if (c.suggestion !== undefined && (c.status === 'suggest' || c.status === 'fail')) {
-          const also = Object.entries(c.also ?? {});
-          const theirs = also.length ? [c.suggestion, ...also.map(([, v]) => v)].join(' / ') : c.suggestion;
-          // A failure (the NPI belongs to someone else) says why before offering the fix.
-          const why = c.status === 'fail' ? `${esc(c.detail)}<br>` : '';
-          return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}">${why}<span class="muted">${LABEL(i.f)}:</span> ${esc(i.value) || '<span class="muted">blank</span>'} → <b>${esc(theirs)}</b> ` +
-            `<button class="use" data-use="${i.f}" data-rows="${rows(entity)}" data-value="${esc(c.suggestion)}" data-also="${esc(JSON.stringify(c.also ?? {}))}" data-source="${esc(c.source)}">Use</button></li>`;
-        }
-        return `<li class="${c.status}" title="${esc(`${c.source}: ${c.detail}`)}"><span class="muted">${LABEL(i.f)}:</span> ${esc(c.detail)}</li>`;
-      }).join('');
-      const head = renderLine(card.title(values), values, marks);
-      const lines = card.lines(values).map((l) => renderLine(l, values, marks)).filter(Boolean);
-      return `<div class="vcard">${mark}<b>${head || lines.shift() || ''}</b>${lines.map((l) => `<span class="line">${l}</span>`).join('')}${fixes ? `<ul>${fixes}</ul>` : ''}</div>`;
-    }).join('');
+    const html = shown.map(({ mark, head, lines, fixes }) =>
+      `<div class="vcard">${mark}<b>${head}</b>${lines.map((l) => `<span class="line">${l}</span>`).join('')}${fixes ? `<ul>${fixes}</ul>` : ''}</div>`).join('');
     const counts = ['fail', 'suggest', 'warn'].map((s) => [s, all.filter((c) => c.status === s).length]).filter(([, n]) => n);
     const more = cards.length > CARDS_SHOWN ? `<button class="more" data-kind="v-${kind}">${open ? 'Show fewer' : `Show all ${cards.length}`}</button>` : '';
     return `<section class="cards ${kind}"><h3>${title} <span class="muted">${all.length}${counts.length ? ` · ${counts.map(([s, n]) => `${MARK[s]} ${n}`).join(' · ')}` : ''}</span></h3>` +
@@ -142,24 +213,6 @@ export function renderValidate() {
     const k = b.dataset.kind;
     if (state.expanded.has(k)) state.expanded.delete(k); else state.expanded.add(k);
     renderValidate();
-  }));
-  $('validated').querySelectorAll('[data-use]').forEach((b) => (b.onclick = () => {
-    accept(b.dataset.rows.split(',').map(Number), b.dataset.use, b.dataset.value, JSON.parse(b.dataset.also || '{}'), b.dataset.source);
-    run();
-  }));
-  $('validated').querySelectorAll('[data-changes]').forEach((b) => (b.onclick = () => {
-    const k = b.dataset.changes;
-    if (!state.showChanges.delete(k)) state.showChanges.add(k);
-    renderValidate();
-  }));
-  $('validated').querySelectorAll('[data-undo]').forEach((b) => (b.onclick = () => {
-    for (const row of b.dataset.rows.split(',').map(Number)) {
-      const acc = state.accepted.get(row);
-      if (acc?.get(b.dataset.undo)?.auto) state.declined.add(`${row}|${b.dataset.undo}`);
-      acc?.delete(b.dataset.undo);
-      for (const [f, a] of acc ?? []) if (a.with === b.dataset.undo) acc.delete(f);
-    }
-    run();
   }));
   // "Use all N from Census": accept every pending suggestion from one source; "undo all" clears them.
   const accepted = [...state.accepted.values()].reduce((n, m) => n + [...m.values()].filter((a) => !a.with).length, 0);
@@ -183,6 +236,7 @@ export function renderValidate() {
   $('sources-off').innerHTML = ['nppes', 'census'].filter((k) => !state.sources[k]).map((k) =>
     `<span class="muted">${SOURCE_NAME[k]}: off (turned off on Upload)</span> <button class="textlink small" data-on="${k}">Turn on</button>`).join(' · ');
 }
+$('validated').onclick = (e) => onCardClick(e, renderValidate);
 
 // Accept a suggestion for an entity's rows. An address split sets line 2 too (`also`); undoing
 // line 1 undoes both (see data-undo).
@@ -223,7 +277,7 @@ export async function runChecks(kinds = ['nppes', 'census'].filter((k) => state.
   const on = { nppes: kinds.includes('nppes'), census: kinds.includes('census') };
   if (!(on.nppes && npis.size) && !(on.census && lines.size)) return void ($('check-note').textContent = 'No NPIs or addresses to look up.');
   state.checking = true;
-  renderValidate();
+  render();
   // The same lookups as a run's (lookupAll), through the CLI's server: browsers can't call NPPES or the Census geocoder.
   await lookupAll(values, on, LOOKUP, { lookups: state.lookups, progress: (done, total) => status(`Checking ${done} of ${total}…`) });
   state.checking = false;

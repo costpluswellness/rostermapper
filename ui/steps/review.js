@@ -1,21 +1,39 @@
-import { $ } from '../lib.js';
+import { $, esc, plural } from '../lib.js';
 import { isDropped } from '../rostermapper.js';
-import { esc, plural } from '../lib.js';
 import { state } from '../state.js';
+import { go } from '../app.js';
+import { entityCard, onCardClick, problemItem } from './validate.js';
 // ─── 5 Review ───────────────────────────────────────────────
+// The file's landing view: providers, locations and billing as a table or a graph, each card carrying
+// its Standardize and Validate results (highlights, ✓ verified, problems with "Use"), and every issue
+// below with a way to fix it.
 export const KIND_LABEL = { missing: 'missing', format: 'invalid', invalid: 'per source', warning: 'check', default: 'note' };
+const NONE = { provider: 'No provider', practice: 'No practice location', billing: 'No billing' };
+
 export function renderReview() {
   const graph = state.reviewView === 'graph';
   $('graph').hidden = !graph;
   $('chains-wrap').hidden = graph;
   document.querySelectorAll('#review-view button').forEach((b) => b.classList.toggle('on', b.dataset.review === state.reviewView));
+  $('review-checking').textContent = state.checking ? 'Checking…' : '';
   if (graph) renderPreview(); else renderChains();
-  // Dropped rows first: they won't be exported.
+  renderIssues();
+}
+
+// Each issue with what fixes it: a missing value → its field on Map; a value Standardize couldn't
+// clean → Standardize; a source's suggestion → "Use". Dropped rows first: they won't be exported.
+function renderIssues() {
   const flagged = state.result.records.filter((r) => r.issues.length).sort((a, b) => isDropped(b) - isDropped(a));
+  const fix = (r, i) => {
+    if (i.kind === 'missing') return ` <button class="textlink small" data-map="${esc(i.field)}" title="See ${esc(i.field)} on Map">mapping</button>`;
+    if (i.kind === 'format') return ' <button class="textlink small" data-goto="standardize" title="Fix it by hand on Standardize">edit</button>';
+    const c = state.checks.get(r.row)?.get(i.field)?.[0];
+    return c?.suggestion !== undefined ? `<ul class="inline">${problemItem(i.field, r.values[i.field], c, [r.row])}</ul>` : '';
+  };
   $('issues').innerHTML = '<tr><th>Row</th><th>Provider</th><th>Issues</th></tr>' + (flagged.slice(0, 500).map((r) => {
     const who = [r.values['provider.last_name'], r.values['provider.first_name']].filter(Boolean).join(', ') || (r.values['provider.npi'] ? `NPI ${r.values['provider.npi']}` : '');
     const row = isDropped(r) ? `${r.row} <span class="drop" title="Not exported">dropped</span>` : r.row;
-    return `<tr><td class="muted nowrap">${row}</td><td class="nowrap">${esc(who)}</td><td>${r.issues.map((i) => `<span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.field)}${i.kind === 'missing' && !i.drop ? '' : `: ${esc(i.message)}`}`).join('<br>')}</td></tr>`;
+    return `<tr><td class="muted nowrap">${row}</td><td class="nowrap">${esc(who)}</td><td>${r.issues.map((i) => `<div><span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.field)}${i.kind === 'missing' && !i.drop ? '' : `: ${esc(i.message)}`}${fix(r, i)}</div>`).join('')}</td></tr>`;
   }).join('') || '<tr><td colspan="3" class="muted">No issues.</td></tr>');
 }
 
@@ -23,6 +41,27 @@ document.querySelectorAll('#review-view button').forEach((b) => (b.onclick = () 
   state.reviewView = b.dataset.review;
   renderReview();
 }));
+$('step-review').addEventListener('click', (e) => {
+  const m = e.target.closest('[data-map]');
+  if (m) return showField(m.dataset.map);
+  onCardClick(e, renderReview);
+});
+
+// Map, scrolled to one field's row and flashed.
+function showField(field) {
+  go('map');
+  const tr = document.querySelector(`#mapped tr[data-field="${CSS.escape(field)}"]`);
+  if (!tr) return;
+  tr.scrollIntoView({ block: 'center' });
+  tr.classList.add('flash');
+  setTimeout(() => tr.classList.remove('flash'), 1600);
+}
+
+// A card's HTML in a table cell or a graph node: title with its mark, detail lines, problems.
+const cardHtml = (kind, e, { fixes = true } = {}) => {
+  const c = entityCard(kind, e);
+  return `<b>${c.head} ${c.mark}</b>${c.lines.map((l) => `<span>${l}</span>`).join('')}${fixes && c.fixes ? `<ul class="fixes">${c.fixes}</ul>` : ''}`;
+};
 
 // The table view: one line per unique provider × location × billing combination, with its rows.
 function renderChains() {
@@ -35,40 +74,23 @@ function renderChains() {
     if (!chains.has(key)) chains.set(key, { p: p.get(r.row), l: l.get(r.row), b: b.get(r.row), rows: [] });
     chains.get(key).rows.push(r.row);
   }
+  // A provider, location or billing entity shared by several lines is drawn in full once; its problems only the first time.
+  const seen = new Set();
   const cell = (kind, list, i) => {
-    if (i === undefined) return `<td class="${kind}"><span class="muted">none</span></td>`;
-    const [title, ...lines] = CARD[kind](list[i]);
-    return `<td class="${kind}"><b>${esc(title)}</b>${lines.filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join('')}</td>`;
+    if (i === undefined) return `<td class="${kind}"><span class="none">${NONE[kind]}</span></td>`;
+    const first = !seen.has(`${kind}${i}`);
+    seen.add(`${kind}${i}`);
+    return `<td class="${kind}">${cardHtml(kind, list[i], { fixes: first })}</td>`;
   };
   $('chains').innerHTML = '<tr><th class="provider">Provider</th><th class="practice">Practice location</th><th class="billing">Billing</th><th>Rows</th></tr>' +
-    [...chains.values()].map((c) => `<tr>${cell('provider', providers, c.p)}${cell('practice', locations, c.l)}${cell('billing', billing, c.b)}` +
-      `<td class="muted">${c.rows.join(', ')}</td></tr>`).join('');
+    ([...chains.values()].map((c) => `<tr>${cell('provider', providers, c.p)}${cell('practice', locations, c.l)}${cell('billing', billing, c.b)}` +
+      `<td class="muted">${c.rows.join(', ')}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No rows move forward.</td></tr>');
 }
 
 // ─── Preview: providers ↔ locations ↔ billing ───────────────
 const KINDS = ['provider', 'practice', 'billing'];
 const LISTS = { provider: 'providers', practice: 'locations', billing: 'billing' };
-const v = (e, f) => e.values[f] ?? '';
 const join = (parts, sep = ' ') => parts.filter(Boolean).join(sep);
-
-// Title and up to two detail lines for each kind of card.
-const CARD = {
-  provider: (e) => [
-    join([join([v(e, 'provider.last_name'), join([v(e, 'provider.first_name'), v(e, 'provider.middle_name'), v(e, 'provider.suffix')])], ', '), v(e, 'provider.degree')], ', ') || `NPI ${v(e, 'provider.npi')}`,
-    v(e, 'provider.npi') && `NPI ${v(e, 'provider.npi')}`,
-    join([v(e, 'provider.taxonomy_1'), v(e, 'provider.specialty_1')], ' · '),
-  ],
-  practice: (e) => {
-    const street = join([v(e, 'practice.address_1'), v(e, 'practice.address_2')]);
-    const title = v(e, 'practice.location_name') || v(e, 'practice.dba') || street;
-    return [title, title === street ? '' : street, join([join([v(e, 'practice.city'), v(e, 'practice.state')], ', '), v(e, 'practice.zip'), v(e, 'practice.phone') && `· ${v(e, 'practice.phone')}`])];
-  },
-  billing: (e) => [
-    v(e, 'billing.legal_name') || `TIN ${v(e, 'billing.tax_id')}`,
-    join([v(e, 'billing.legal_name') && v(e, 'billing.tax_id') && `TIN ${v(e, 'billing.tax_id')}`, v(e, 'billing.npi') && `NPI ${v(e, 'billing.npi')}`], ' · '),
-    join([join([v(e, 'billing.address_1'), v(e, 'billing.city'), v(e, 'billing.state')], ', '), v(e, 'billing.zip')]),
-  ],
-};
 
 // Index → connected indexes, per pair of kinds.
 function neighbours() {
@@ -95,18 +117,17 @@ function renderPreview() {
     const entities = state.kept[LISTS[kind]];
     $(`count-${kind}`).textContent = entities.length;
     $(`list-${kind}`).innerHTML = entities.map((e, i) => {
-      const [title, ...lines] = CARD[kind](e);
       const fields = Object.entries(e.values).map(([f, val]) => `<dt>${esc(f.split('.')[1])}</dt><dd>${esc(val)}</dd>`).join('');
       // The connections line only shows on narrow screens, where there are no lines between cards.
-      return `<li data-kind="${kind}" data-i="${i}"><b>${esc(title)}</b>${lines.filter(Boolean).map((l) => `<span>${esc(l)}</span>`).join('')}` +
+      return `<li data-kind="${kind}" data-i="${i}">${cardHtml(kind, e)}` +
         `<span class="links-line">${linkText[kind](i)} · ${plural(e.rows.length, 'row')}${e.issues ? ` · <em class="issues">${plural(e.issues, 'issue')}</em>` : ''}</span>` +
         `<dl>${fields}<dt>rows</dt><dd>${e.rows.join(', ')}</dd></dl></li>`;
-    }).join('') || '<li class="empty"><span>none in this sheet</span></li>';
+    }).join('') || `<li class="empty"><span class="none">${NONE[kind]}</span></li>`;
   }
   $('graph').querySelectorAll('li[data-kind]').forEach((li) => {
     const kind = li.dataset.kind;
     const i = +li.dataset.i;
-    li.onclick = () => select(kind, i);
+    li.onclick = (ev) => { if (!ev.target.closest('a, button')) select(kind, i); };
     li.onmouseenter = () => { state.hovered = { kind, i }; highlight(); };
     li.onmouseleave = () => { state.hovered = null; highlight(); };
   });

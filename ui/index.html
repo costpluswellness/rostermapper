@@ -40,21 +40,14 @@
     <h4>Files</h4>
     <ul id="file-list"></ul>
   </div>
-  <div id="rail-steps" hidden>
-    <h4>Steps</h4>
-    <ol id="steps" class="rm-steps">
-      <li><a href="#" data-step="upload">Upload <small data-count="upload"></small></a></li>
-      <li class="soon"><a aria-disabled="true" title="Not built yet">Transform <span class="rm-soon">soon</span></a></li>
-      <li><a href="#" data-step="map">Map <small data-count="map"></small></a></li>
-      <li><a href="#" data-step="standardize">Standardize <small data-count="standardize"></small></a></li>
-      <li><a href="#" data-step="validate">Validate <small data-count="validate"></small></a></li>
-      <li><a href="#" data-step="review">Review <small data-count="review"></small></a></li>
-      <li><a href="#" data-step="export">Export <small data-count="export"></small></a></li>
-    </ol>
-  </div>
 </nav>
 
 <div class="rm-main">
+<!-- The open file's steps, as tabs. × hides a tab (remembered in this browser); + brings it back. -->
+<div class="file-tabs" id="file-tabs" hidden>
+  <span class="view-switch" id="tabs" role="tablist"></span>
+  <select id="tab-add" title="Show a hidden tab" aria-label="Show a hidden tab" hidden></select>
+</div>
 <p id="transform-banner" class="rm-note" hidden></p>
 
 <section class="step" id="step-upload">
@@ -144,7 +137,7 @@
 </section>
 
 <section class="step" id="step-review" hidden>
-  <p class="view-switch" id="review-view"><button data-review="table" class="on">Table</button><button data-review="graph">Graph</button></p>
+  <p class="review-bar"><span class="view-switch" id="review-view"><button data-review="table" class="on">Table</button><button data-review="graph">Graph</button></span> <span id="review-checking" class="muted small"></span></p>
   <div class="scroll tall" id="chains-wrap"><table id="chains" class="chains"></table></div>
   <div class="graph" id="graph" hidden>
     <svg id="links" aria-hidden="true"></svg>
@@ -230,7 +223,10 @@
     <li>Other NPPES results are suggestions: accept one with "Use"; "undo" puts yours back.</li>
     <li>A provider NPI that NPPES lists under someone else drops the row. When NPPES has the provider under another NPI, "Use" puts it in and keeps the row.</li></ul></section>
   <section data-how="review"><h3>5 · Review</h3><ul>
-    <li>Visualize relationships by entity: which unique NPIs, tax IDs, billing entities and network records are being entered.</li>
+    <li>Clicking a file opens it here. Visualize relationships by entity: which unique NPIs, tax IDs, billing entities and network records are being entered.</li>
+    <li>Each card carries Standardize's and Validate's results: ✓ verified, ⚠ a suggestion ("Use" accepts it), ✕ a failure. ↗ opens an NPI in the NPPES NPI Registry.</li>
+    <li>Each issue links to what fixes it: a missing value to its field on Map, a value that couldn't be cleaned to Standardize.</li>
+    <li>The steps are tabs above the view. × hides a tab you don't use; + brings it back.</li>
     <li>See which providers work at which locations and bill through which entities, and every issue by row.</li></ul></section>
   <section data-how="export"><h3>6 · Export</h3><ul>
     <li>Download a workbook (Summary, Mapping, Data, Issues and Left out tabs), or the records as CSV or JSON.</li></ul></section>

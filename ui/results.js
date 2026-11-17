@@ -25,7 +25,7 @@ export function renderFiles() {
 }
 $('file-list').onclick = (e) => {
   const a = e.target.closest('[data-file]');
-  if (a) { e.preventDefault(); openFile(+a.dataset.file, undefined, state.mode === 'steps' ? 'upload' : 'map'); }
+  if (a) { e.preventDefault(); openFile(+a.dataset.file); }
 };
 
 // Every sheet of every file that ran: { f (the file), i (its index), r (the sheet's result) }.

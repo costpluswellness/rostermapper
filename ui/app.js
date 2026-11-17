@@ -44,35 +44,51 @@ $('how').onclick = () => {
 $('how-dialog').onclick = (e) => { if (e.target === $('how-dialog')) $('how-dialog').close(); }; // click outside closes
 
 // ─── Navigation ─────────────────────────────────────────────
-// Views: upload (a new run's files and options), results, and the steps of the file open.
+// Views: upload (a new run's files and options), results, and the steps of the file open, as tabs.
+const TAB_LABEL = { upload: 'Upload', map: 'Map', standardize: 'Standardize', validate: 'Validate', review: 'Review', export: 'Export' };
+// Tabs the user hid with ×, remembered in this browser. Review, where a file opens, can't be hidden.
+const HIDDEN_KEY = 'rostermapper.hiddenTabs';
+const hidden = (() => { try { return new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? '[]')); } catch { return new Set(); } })();
+const saveHidden = () => { try { localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden])); } catch { /* not remembered */ } };
+const shownSteps = () => STEPS.filter((s) => !hidden.has(s));
+
 export function go(step) {
   if (step !== 'upload' && step !== 'results' && !state.result) return;
+  if (hidden.delete(step)) saveHidden(); // a link to a hidden tab (an issue's "mapping") brings it back
   state.step = step;
   for (const s of [...STEPS, 'results']) $(`step-${s}`).hidden = s !== step;
   const inSteps = step !== 'results' && !!state.result;
   $('filename').hidden = !inSteps;
-  $('rail-steps').hidden = !state.result;
+  $('file-tabs').hidden = !inSteps;
   $('rail-new').toggleAttribute('aria-current', step === 'upload' && !state.result);
   $('rail-results').toggleAttribute('aria-current', step === 'results');
-  // Links, not buttons, so a portal's button styles don't turn the step list into a column of buttons.
-  $('steps').querySelectorAll('a[data-step]').forEach((a) => {
-    a.toggleAttribute('aria-current', inSteps && a.dataset.step === step);
-    a.toggleAttribute('aria-disabled', a.dataset.step !== 'upload' && !state.result);
-  });
-  const i = STEPS.indexOf(step);
+  const steps = shownSteps();
+  const i = steps.indexOf(step);
   $('step-nav').hidden = !inSteps;
   $('back').disabled = i <= 0;
-  $('next').disabled = i === STEPS.length - 1 || !state.result;
+  $('next').disabled = i === steps.length - 1 || !state.result;
   $('run-all').disabled = !state.result || step === 'export';
   $('map-links').hidden = step !== 'map' || !state.result;
   render();
-  // Lookups start the first time Validate opens for a sheet; "Run checks again" repeats them.
-  if (step === 'validate' && state.result && !state.checked) { state.checked = true; runChecks(); }
+  // Lookups start the first time Review or Validate opens for a sheet (answers a run already got are
+  // reused); "Run checks again" repeats them.
+  if ((step === 'validate' || step === 'review') && state.result && !state.checked) { state.checked = true; runChecks(); }
 }
-$('steps').querySelectorAll('a[data-step]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); go(a.dataset.step); }));
+$('tabs').onclick = (e) => {
+  const x = e.target.closest('[data-hide]');
+  if (x) {
+    e.stopPropagation();
+    hidden.add(x.dataset.hide);
+    saveHidden();
+    return go(state.step === x.dataset.hide ? 'review' : state.step);
+  }
+  const b = e.target.closest('[data-step]');
+  if (b) go(b.dataset.step);
+};
+$('tab-add').onchange = (e) => { const s = e.target.value; e.target.value = ''; if (s) go(s); };
 $('rail-new').onclick = (e) => { e.preventDefault(); closeFile(); go('upload'); };
-$('back').onclick = () => go(STEPS[STEPS.indexOf(state.step) - 1]);
-$('next').onclick = () => go(STEPS[STEPS.indexOf(state.step) + 1]);
+$('back').onclick = () => { const s = shownSteps(); go(s[s.indexOf(state.step) - 1]); };
+$('next').onclick = () => { const s = shownSteps(); go(s[s.indexOf(state.step) + 1]); };
 
 // Step by step: finish this file from wherever you are (lookups, trusted fixes) and go to Export.
 $('run-all').onclick = async () => {
@@ -98,16 +114,12 @@ function renderStatus() {
   $('status').textContent = text;
 }
 
-// Each step's count in the rail: what it found for the sheet open.
-function renderStepCounts() {
+// The open file's tabs, each with what its step found for the sheet open; × hides one, + shows it again.
+function renderTabs() {
   const r = state.result;
-  const badge = (step, text, tip = '', bad = false) => {
-    const el = $('steps').querySelector(`[data-count="${step}"]`);
-    el.textContent = text;
-    el.title = tip;
-    el.classList.toggle('bad', bad);
-  };
-  if (!r) return STEPS.forEach((s) => badge(s, ''));
+  if (!r) return;
+  const counts_ = {};
+  const badge = (step, text, tip = '', bad = false) => (counts_[step] = { text, tip, bad });
   const format = r.records.reduce((n, x) => n + x.issues.filter((i) => i.kind === 'format').length, 0);
   const checks = [...state.checks.values()].flatMap((m) => [...m.values()].map((list) => list[0]?.status));
   const fails = checks.filter((s) => s === 'fail').length;
@@ -119,6 +131,15 @@ function renderStepCounts() {
   badge('validate', !state.checked ? '' : state.checking ? '…' : `${fails ? `${fails} ✕ ` : ''}${warns ? `${warns} ⚠` : ''}`.trim() || '✓', 'Failed and flagged checks', fails > 0);
   badge('review', String(state.kept.providers.length || state.kept.billing.length), 'Providers (or billing entities) moving forward');
   badge('export', `${c.movedForward}`, `${c.movedForward} rows move forward, ${c.leftOut} left out`, c.leftOut > 0);
+  $('tabs').innerHTML = shownSteps().map((s) => {
+    const n = counts_[s];
+    return `<button type="button" role="tab" data-step="${s}"${s === state.step ? ' class="on" aria-selected="true"' : ''}${n?.tip ? ` title="${esc(n.tip)}"` : ''}>${TAB_LABEL[s]}` +
+      `${n?.text ? ` <small class="${n.bad ? 'bad' : 'muted'}">${esc(n.text)}</small>` : ''}` +
+      `${s === 'review' ? '' : `<span class="x" data-hide="${s}" title="Hide this tab">×</span>`}</button>`;
+  }).join('');
+  const off = STEPS.filter((s) => hidden.has(s));
+  $('tab-add').hidden = !off.length;
+  $('tab-add').innerHTML = '<option value="">+</option>' + off.map((s) => `<option value="${s}">${TAB_LABEL[s]}</option>`).join('');
 }
 
 // ─── Loading ────────────────────────────────────────────────
@@ -253,7 +274,7 @@ export function render() {
   renderUpload();
   renderBanner();
   renderFiles();
-  renderStepCounts();
+  renderTabs();
   renderStatus();
   if (state.step === 'results') return renderResults();
   if (!state.result) return;
@@ -329,8 +350,8 @@ function closeFile() {
   document.title = 'Roster Mapper';
 }
 
-// Open one of the files in the steps, at a sheet: at Map from Results, at Upload in Step by step.
-export async function openFile(i, sheet, step = 'map') {
+// Open one of the files at a sheet: at Review (its tabs hold the other steps), or at Upload for Step by step's first file.
+export async function openFile(i, sheet, step = 'review') {
   const f = state.files[i];
   let sheets;
   try { sheets = await f.read(); } catch (e) {

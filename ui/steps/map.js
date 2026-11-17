@@ -193,7 +193,7 @@ export function renderMap() {
       else if (level(name) === 'required') under = note(`missing: required for ${required(name).join(', ')}`, 'bad');
       else under = state.cleared.has(id) ? note('left empty here') : '';
       const cls = a || constant(id) || actionValue(id) ? '' : level(name) === 'required' && id !== 'network.action_type' ? 'missing-required' : 'empty';
-      return `<tr class="${cls}"><td>${fieldName(entity, name)}</td><td class="cands">${pills(id, level(name) === 'required')}${under}</td></tr>`;
+      return `<tr class="${cls}" data-field="${id}"><td>${fieldName(entity, name)}</td><td class="cands">${pills(id, level(name) === 'required')}${under}</td></tr>`;
     });
     const n = names.filter((name) => mapping[`${entity}.${name}`]).length;
     return `<section class="fieldset ${entity}"><h3>${ENTITY_TITLES[entity] ?? entity} <span class="muted">${n} of ${names.length} mapped</span></h3>` +

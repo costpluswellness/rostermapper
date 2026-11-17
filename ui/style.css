@@ -271,7 +271,8 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 .rm .chains th:is(.provider, .practice, .billing) { color: var(--ink-kind); background: color-mix(in srgb, var(--ink-kind) 9%, var(--bg)); }
 .chains td { font-size: 13px; line-height: 1.4; }
 .chains td b { display: block; font-weight: 600; }
-.chains td span { display: block; font-size: 12px; color: var(--muted); }
+.chains td > span { display: block; font-size: 12px; color: var(--muted); }
+.chains td > b .mark { font-size: 13px; }
 .graph { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 56px; max-height: 680px; overflow: auto; padding: 0 2px 12px; border-top: 1px solid var(--rule); }
 #links { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
 #links path { fill: none; stroke: var(--link); stroke-width: 1; }
@@ -283,7 +284,7 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 .entities ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .entities li { background: var(--bg-kind); border: 1px solid var(--line-kind); border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 12px; line-height: 1.35; }
 .entities li b { display: block; font-weight: 600; }
-.entities li span { display: block; font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
+.entities li > span { display: block; font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
 .entities li .links-line { display: none; }
 .entities li .issues { color: var(--weak); }
 .entities li dl { display: none; margin: 8px 0 0; font-size: 12px; }
@@ -299,6 +300,35 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
   #links { display: none; }
   .entities li .links-line { display: block; }
 }
+
+/* Review: validation inside the cards; problems under each card (in the graph, only on the pinned card) */
+.review-bar { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+.review-bar .view-switch { margin: 0; }
+.rm .none { font-style: italic; color: var(--weak); }
+.rm a.ext { text-decoration: none; color: var(--accent); font-size: .9em; }
+.rm a.ext:hover { text-decoration: underline; }
+.rm ul.fixes { list-style: none; margin: 6px 0 0; padding: 6px 0 0; border-top: 1px solid var(--rule); font-size: 12px; color: inherit; }
+.rm ul.fixes li, .rm ul.inline li { margin-bottom: 3px; }
+.rm :is(ul.fixes, ul.inline) li.fail { color: var(--bad); }
+.rm :is(ul.fixes, ul.inline) li.warn { color: var(--weak); }
+.rm :is(ul.fixes, ul.inline) b { display: inline; }
+.rm ul.fixes ul { list-style: none; padding-left: 10px; margin: 2px 0 0; }
+.rm ul.inline { list-style: none; margin: 2px 0 4px; padding: 0; }
+.entities li ul.fixes { display: none; }
+.entities li.selected ul.fixes { display: block; }
+#issues td > div + div { margin-top: 2px; }
+.fieldset tr.flash td { background: var(--accent-soft); transition: background .3s; }
+
+/* The open file's steps, as tabs; × on a tab hides it, + brings hidden ones back */
+.file-tabs { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; }
+.file-tabs .view-switch { margin: 0; flex-wrap: wrap; }
+.rm .file-tabs .view-switch button { display: inline-flex; align-items: baseline; gap: 5px; }
+.file-tabs small { font-size: 11px; font-variant-numeric: tabular-nums; }
+.file-tabs small.bad { color: var(--bad); }
+.file-tabs .x { margin-left: 2px; color: var(--muted); visibility: hidden; }
+.file-tabs button:hover .x, .file-tabs button:focus-visible .x { visibility: visible; }
+.file-tabs .x:hover { color: var(--bad); }
+.rm #tab-add { font-size: 13px; padding: 2px 6px; color: var(--muted); }
 
 /* Export preview */
 .preview td { white-space: nowrap; font-size: 13px; }
