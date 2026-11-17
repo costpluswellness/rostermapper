@@ -111,8 +111,11 @@ function entityChecks(kind, entity) {
     if (acc || check) items.push({ f, row: r.row, value: values[f], acc, check });
   }
   const status = items.reduce((worst, i) => (i.acc ? worst : !worst || RANK[i.check.status] < RANK[worst] ? i.check.status : worst), null);
+  // A blank filled in on its own (a taxonomy from NPPES) is highlighted: the roster didn't have it.
+  const filled = (i) => i.acc.auto && !state.before.get(i.row)?.[i.f];
   const marks = new Map(items.map((i) => [i.f, i.acc
-    ? { status: 'ok', tip: i.acc.auto ? `${i.acc.source}: ${changeText(i)}` : `Accepted from ${i.acc.source}` }
+    ? filled(i) ? { status: 'filled', tip: `Auto-filled from ${i.acc.source} (the roster had none)` }
+      : { status: 'ok', tip: i.acc.auto ? `${i.acc.source}: ${changeText(i)}` : `Accepted from ${i.acc.source}` }
     : { status: i.check.status, tip: `${i.check.source}: ${i.check.detail}` }]));
   for (const [f, a] of state.accepted.get(entity.rows[0]) ?? []) if (a.with) marks.set(f, { status: 'ok', tip: `Accepted from ${a.source}` });
   const formats = [];

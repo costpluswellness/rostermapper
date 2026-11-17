@@ -230,7 +230,7 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 .mark.fail { color: var(--bad); }
 .mark.skip { color: var(--muted); }
 .v { border-radius: 3px; padding: 0 3px; margin: 0 -1px; cursor: help; }
-.v.ok { background: var(--mapped-soft); color: var(--mapped); }
+.v.ok, .v.filled { background: var(--mapped-soft); color: var(--mapped); }
 .v.suggest, .v.warn { background: var(--weak-soft); color: var(--weak); }
 .v.fail { background: var(--bad-soft); color: var(--bad); }
 .rm .drop { font-size: 11px; color: var(--bad); }
