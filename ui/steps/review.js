@@ -3,7 +3,7 @@ import { counts, isDropped, outputName, toReport } from '../rostermapper.js';
 import { saveAllowed, state } from '../state.js';
 import { checkedWith, openMap, pickSheet, remember, run, sheetMemo } from '../app.js';
 import { isIgnored, toggleIgnored } from '../results.js';
-import { entityCard, onCardClick, renderChecksBar } from './validate.js';
+import { editControl, entityCard, onCardClick, renderChecksBar } from './validate.js';
 // ─── Review: a file's one page ──────────────────────────────
 // Its sheets along the top; providers, locations and billing as a graph or a table, each card carrying
 // its checks (✓, problems highlighted, "Use"); every issue below with its fix; Mapping and Raw data as
@@ -20,7 +20,7 @@ export function renderReview() {
   document.querySelectorAll('#review-view button').forEach((b) => b.classList.toggle('on', b.dataset.review === state.reviewView));
   if (graph) renderPreview(); else renderChains();
   renderIssues();
-  if (state.editing) { const input = $('issues').querySelector('[data-editing]'); input?.focus(); input?.select(); }
+  if (state.editing) { const input = $('step-review').querySelector('[data-editing]'); input?.focus(); input?.select(); }
 }
 
 // The file's sheets as tabs, each with its row count; × ignores one (left out of Results and the download), ↺ brings it back.
@@ -91,9 +91,7 @@ function renderIssues() {
   const fix = ({ issue: i, first, rows }) => {
     if (i.kind === 'default') return '';
     // "edit": type the right value for the issue's rows, in place.
-    const key = `${i.field}|${rows.join(',')}`;
-    if (state.editing === key) return ` <input class="fix" data-editing="${esc(key)}" value="${esc(first.values[i.field])}" spellcheck="false" aria-label="${esc(i.field)}">`;
-    const edit = ` <button class="textlink small" data-edit="${esc(key)}" title="Type the right value for ${esc(plural(rows.length, 'row'))}">edit</button>`;
+    const edit = ` ${editControl(i.field, rows, first.values[i.field])}`;
     if (i.kind === 'missing') return ` <button class="textlink small" data-map="${esc(i.field)}" title="See ${esc(i.field)} in Mapping">mapping</button>${edit}`;
     if (i.kind === 'format') {
       // A value from a fixed list (provider type, gender, …) can be allowed as written.
@@ -109,7 +107,10 @@ function renderIssues() {
   const rowsCell = (rows) => esc(rows.slice(0, ROWS_SHOWN).join(', ')) + (rows.length > ROWS_SHOWN ? ` <span class="muted" title="${esc(rows.join(', '))}">+${rows.length - ROWS_SHOWN}</span>` : '');
   $('issues').innerHTML = '<tr><th>Entity</th><th>Issue</th><th>Rows</th></tr>' + (list.slice(0, 500).map((g) => {
     const { kind, entity, issue: i, rows } = g;
-    const who = KIND_OF[kind] ? `<span class="ent-${kind}">${KIND_OF[kind][1]}</span> ${esc(entityName(kind, entity)) || '<span class="muted">blank</span>'}` : `<span class="muted">${esc(kind[0].toUpperCase() + kind.slice(1))}</span>`;
+    // The entity's name shows its card in the graph (rows left out aren't there).
+    const name = esc(entityName(kind, entity)) || '<span class="muted">blank</span>';
+    const card = KIND_OF[kind] && cardIndex(kind, g.first.row) >= 0 ? `<a href="#" data-show="${kind}|${g.first.row}" title="Show its card">${name}</a>` : name;
+    const who = KIND_OF[kind] ? `<span class="ent-${kind}">${KIND_OF[kind][1]}</span> ${card}` : `<span class="muted">${esc(kind[0].toUpperCase() + kind.slice(1))}</span>`;
     const drop = i.drop ? ' <span class="drop" title="These rows are not exported">dropped</span>' : '';
     return `<tr><td>${who}</td><td><span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.field)}${i.kind === 'missing' && !i.drop ? '' : `: ${esc(i.message)}`}${fix(g)}</td><td class="muted nowrap">${rowsCell(rows)}${drop}</td></tr>`;
   }).join('') || '<tr><td colspan="3" class="muted">No issues.</td></tr>');
@@ -127,7 +128,9 @@ $('step-review').addEventListener('click', (e) => {
   const m = e.target.closest('[data-map]');
   if (m) return openMap(m.dataset.map);
   const ed = e.target.closest('[data-edit]');
-  if (ed) { state.editing = ed.dataset.edit; return renderIssues(), $('issues').querySelector('[data-editing]')?.focus(); }
+  if (ed) { e.stopPropagation(); state.editing = ed.dataset.edit; return renderReview(); }
+  const show = e.target.closest('[data-show]');
+  if (show) { e.preventDefault(); const [kind, row] = show.dataset.show.split('|'); return showCard(kind, +row); }
   const a = e.target.closest('[data-allow], [data-disallow]');
   if (a) {
     const f = a.dataset.allow ?? a.dataset.disallow;
@@ -141,25 +144,46 @@ $('step-review').addEventListener('click', (e) => {
 
 // An issue's value typed in place: Enter saves it for the issue's rows (cleaned and checked like any
 // other value), Escape or leaving the box without a change cancels.
-$('issues').addEventListener('keydown', (e) => {
+$('step-review').addEventListener('keydown', (e) => {
   const input = e.target.closest('[data-editing]');
   if (!input) return;
   if (e.key === 'Escape') { state.editing = null; return renderReview(); }
   if (e.key === 'Enter') saveEdit(input);
 });
-$('issues').addEventListener('focusout', (e) => { const input = e.target.closest('[data-editing]'); if (input && state.editing) saveEdit(input); });
+$('step-review').addEventListener('focusout', (e) => { const input = e.target.closest('[data-editing]'); if (input && state.editing) saveEdit(input); });
 function saveEdit(input) {
   const [f, rows] = input.dataset.editing.split('|');
   state.editing = null;
   if (input.value === input.defaultValue) return renderReview(); // unchanged: nothing to save
   const typed = input.value.trim();
-  for (const row of rows.split(',').map(Number)) {
+  const list = rows.split(',').map(Number);
+  for (const row of list) {
     const raw = state.byRow.get(row)?.raw.values[f] ?? '';
     if (!state.fixes.has(row)) state.fixes.set(row, new Map());
     // Typing the value back as written drops the fix, so cleaning applies again.
     if (typed === raw) state.fixes.get(row).delete(f); else state.fixes.get(row).set(f, typed);
   }
+  // Typed on a pinned card: keep it pinned (its place in the list may move).
+  const pinned = state.selected;
   run();
+  if (pinned) showCard(pinned.kind, list[0], { scroll: false });
+}
+
+// The card holding a row, in the graph: pinned (its problems open, its links lit) and scrolled into view.
+const LIST = { provider: 'providers', practice: 'locations', billing: 'billing' };
+// Its card's index, or -1: a row left out, or one with no such entity (no practice address), has none.
+const cardIndex = (kind, row) => state.kept[LIST[kind]].findIndex((e) => e.rows.includes(row));
+function showCard(kind, row, { scroll = true } = {}) {
+  const i = cardIndex(kind, row);
+  if (i < 0) return;
+  state.reviewView = 'graph';
+  state.selected = { kind, i };
+  renderReview();
+  const li = $('graph').querySelector(`li[data-kind="${kind}"][data-i="${i}"]`);
+  if (!scroll || !li) return;
+  li.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  li.classList.add('flash');
+  setTimeout(() => li.classList.remove('flash'), 1600);
 }
 
 // A card's HTML in a table cell or a graph node: title with its mark, detail lines, problems.
@@ -232,7 +256,7 @@ function renderPreview() {
   $('graph').querySelectorAll('li[data-kind]').forEach((li) => {
     const kind = li.dataset.kind;
     const i = +li.dataset.i;
-    li.onclick = (ev) => { if (!ev.target.closest('a, button')) select(kind, i); };
+    li.onclick = (ev) => { if (!ev.target.closest('a, button, input')) select(kind, i); };
     li.onmouseenter = () => { state.hovered = { kind, i }; highlight(); };
     li.onmouseleave = () => { state.hovered = null; highlight(); };
   });
@@ -290,7 +314,8 @@ function highlight() {
 function drawLinks() {
   const graph = $('graph');
   const svg = $('links');
-  if (!state.kept || getComputedStyle(svg).display === 'none') return;
+  if (!state.kept) return;
+  if (getComputedStyle(svg).display === 'none') return highlight(); // narrow: no lines, but cards still light up
   const box = graph.getBoundingClientRect();
   const anchor = (li, side) => {
     const r = li.getBoundingClientRect();

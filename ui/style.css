@@ -309,6 +309,8 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 #issues .ent-practice { color: var(--practice-ink); }
 #issues .ent-billing { color: var(--billing-ink); }
 .fieldset tr.flash td { background: var(--accent-soft); transition: background .3s; }
+.entities li.flash { box-shadow: 0 0 0 2px var(--accent); transition: box-shadow .3s; }
+#issues a[data-show] { color: inherit; }
 
 /* Results: the workbook's tables, one tab at a time, with a filter */
 .results-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin: 0 0 12px; }

@@ -130,9 +130,15 @@ function entityChecks(kind, entity) {
  */
 export function entityCard(kind, entity) {
   const card = CARD[kind];
-  const { values, items, status, marks, formats } = entityChecks(kind, entity);
+  const { values, items, status: checked, marks, formats } = entityChecks(kind, entity);
+  // Values the entity's rows are missing (a ZIP, a billing NPI), each typed in place on the card.
+  const blanks = new Map();
+  for (const row of entity.rows) {
+    for (const i of state.byRow.get(row)?.clean.issues ?? []) if (i.kind === 'missing' && i.field.startsWith(`${kind}.`) && !blanks.has(i.field)) blanks.set(i.field, i);
+  }
+  const status = blanks.size && (!checked || checked === 'ok' || checked === 'skip') ? 'warn' : checked;
   const hover = [...items.map((i) => i.acc ? `✓ ${LABEL(i.f)}: accepted from ${i.acc.source}` : `${MARK[i.check.status]} ${LABEL(i.f)}: ${i.check.detail}`),
-    ...formats.map(({ f, issue }) => `✕ ${LABEL(f)}: ${issue.message}`)].join('\n');
+    ...formats.map(({ f, issue }) => `✕ ${LABEL(f)}: ${issue.message}`), ...[...blanks.keys()].map((f) => `⚠ ${LABEL(f)}: missing`)].join('\n');
   // A mark only for a problem (⚠ or ✕): a value is taken as confirmed unless marked.
   const mark = status && status !== 'ok' && status !== 'skip' ? `<span class="mark ${status}" title="${esc(hover)}">${MARK[status]}</span>` : '';
   // Changes applied on their own (Census addresses, NPPES legal names): folded under "N changes from …", each with its old value.
@@ -143,12 +149,21 @@ export function entityCard(kind, entity) {
   const fixes = changes + items.filter((i) => !i.acc?.auto && (i.acc || problem(i.check?.status))).map((i) => {
     if (i.acc) return `<li><span class="muted">${LABEL(i.f)}:</span> ${esc(i.value)} <span class="muted">accepted</span> <button class="textlink small" data-undo="${i.f}" data-rows="${key}">undo</button></li>`;
     return problemItem(i.f, i.value, i.check, entity.rows);
-  }).join('') + formats.map(({ f, issue }) => `<li class="fail"><span class="muted">${LABEL(f)}:</span> ${esc(issue.message)}</li>`).join('');
+  }).join('') + formats.map(({ f, issue }) => `<li class="fail"><span class="muted">${LABEL(f)}:</span> ${esc(issue.message)} ${editControl(f, entity.rows, values[f], 'edit')}</li>`).join('') +
+    [...blanks.keys()].map((f) => `<li class="warn"><span class="muted">${LABEL(f)}:</span> missing ${editControl(f, entity.rows, '', 'add')}</li>`).join('');
   const lines = card.lines(values).map((l) => renderLine(l, values, marks)).filter(Boolean);
   const head = renderLine(card.title(values), values, marks) || lines.shift() || '';
   const missing = card.missing(values).filter(Boolean);
   if (missing.length) lines.push(none(missing.join(' · ')));
   return { mark, head, lines, fixes, status };
+}
+
+/** "edit" (or "add") for a value of some rows, or its input while it's being typed (see Review's saveEdit). */
+export function editControl(f, rows, value, label = 'edit') {
+  const key = `${f}|${rows.join(',')}`;
+  return state.editing === key
+    ? `<input class="fix" data-editing="${esc(key)}" value="${esc(value)}" spellcheck="false" aria-label="${esc(LABEL(f))}">`
+    : `<button class="textlink small" data-edit="${esc(key)}" title="${esc(`Type the ${LABEL(f).toLowerCase()} for ${plural(rows.length, 'row')}`)}">${label}</button>`;
 }
 
 // One problem a source found, with "Use" when it suggests a value. Also used by Review's issues.
