@@ -146,6 +146,7 @@
     <section class="entities billing"><h4>Billing <span id="count-billing"></span></h4><ul id="list-billing"></ul></section>
   </div>
   <h3>Issues</h3>
+  <p id="allowed" class="small" hidden></p>
   <div class="scroll short tall"><table id="issues"></table></div>
 </section>
 
@@ -225,7 +226,8 @@
   <section data-how="review"><h3>5 · Review</h3><ul>
     <li>Clicking a file opens it here. Visualize relationships by entity: which unique NPIs, tax IDs, billing entities and network records are being entered.</li>
     <li>Each card carries Standardize's and Validate's results: values are taken as confirmed unless marked; ✓ on a card means its checks passed, ⚠ a suggestion ("Use" accepts it), ✕ a failure. Only problem values are highlighted. ↗ opens an NPI in the NPPES NPI Registry.</li>
-    <li>Each issue links to what fixes it: a missing value to its field on Map, a value that couldn't be cleaned to Standardize.</li>
+    <li>Issues show once per provider, location or billing entity. Each links to what fixes it: a missing value to its field on Map, a value that couldn't be cleaned to Standardize. "Use" applies a source's value to every row of the entity.</li>
+    <li>A value outside a fixed list (a sender's own provider type, such as AHP or PHYS) can be allowed as written: it's kept and no longer flagged, in this file and the next, until you remove it under Issues.</li>
     <li>The steps are tabs above the view. × hides a tab you don't use; + brings it back.</li>
     <li>See which providers work at which locations and bill through which entities, and every issue by row.</li></ul></section>
   <section data-how="export"><h3>6 · Export</h3><ul>

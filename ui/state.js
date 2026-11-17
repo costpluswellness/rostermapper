@@ -2,6 +2,7 @@
 // Saved in this browser: the mode and which lookups may run (see loadSources).
 export const SOURCES_KEY = 'rostermapper.sources';
 export const MODE_KEY = 'rostermapper.mode';
+export const ALLOWED_KEY = 'rostermapper.allowed';
 export const SOURCE_NAME = { nppes: 'NPPES', census: 'US Census geocoder' };
 
 export const state = {
@@ -34,7 +35,16 @@ export const state = {
   files: [], // the files dropped together: { name, read() → sheets, status: waiting|running|done|error, results?, error? }
   current: -1, // the file open in the steps, by index in `files`
   progress: '', // the status bar: "Checking 12 of 40…" while lookups run
+  allowed: loadAllowed(), // field → values the user allowed as written (provider types like AHP): not flagged
 };
+
+// Values allowed as written, remembered in this browser so the next roster from the sender keeps them.
+function loadAllowed() {
+  try { return new Map(Object.entries(JSON.parse(localStorage.getItem(ALLOWED_KEY) ?? '{}')).map(([f, list]) => [f, new Set(list)])); } catch { return new Map(); }
+}
+export function saveAllowed() {
+  try { localStorage.setItem(ALLOWED_KEY, JSON.stringify(Object.fromEntries([...state.allowed].filter(([, s]) => s.size).map(([f, s]) => [f, [...s]])))); } catch { /* not remembered */ }
+}
 
 function loadMode() {
   try { return localStorage.getItem(MODE_KEY) === 'steps' ? 'steps' : 'run'; } catch { return 'run'; }

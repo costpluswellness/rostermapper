@@ -1,7 +1,7 @@
-import { $, esc, plural } from '../lib.js';
+import { $, esc, plural, specOf } from '../lib.js';
 import { isDropped } from '../rostermapper.js';
-import { state } from '../state.js';
-import { go } from '../app.js';
+import { saveAllowed, state } from '../state.js';
+import { go, run } from '../app.js';
 import { entityCard, onCardClick } from './validate.js';
 // ─── 5 Review ───────────────────────────────────────────────
 // The file's landing view: providers, locations and billing as a table or a graph, each card carrying
@@ -55,7 +55,12 @@ function renderIssues() {
   const list = [...groups.values()].sort((a, b) => !!b.issue.drop - !!a.issue.drop || (order.indexOf(a.kind) + 4) % 4 - (order.indexOf(b.kind) + 4) % 4 || a.rows[0] - b.rows[0]);
   const fix = ({ issue: i, first, rows }) => {
     if (i.kind === 'missing') return ` <button class="textlink small" data-map="${esc(i.field)}" title="See ${esc(i.field)} on Map">mapping</button>`;
-    if (i.kind === 'format') return ' <button class="textlink small" data-goto="standardize" title="Fix it by hand on Standardize">edit</button>';
+    if (i.kind === 'format') {
+      // A value from a fixed list (provider type, gender, …) can be allowed as written; others are fixed by hand.
+      const value = first.values[i.field];
+      const allow = specOf(i.field).type === 'enum' && value ? ` <button class="use" data-allow="${esc(i.field)}" data-value="${esc(value)}" title="${esc(`Keep "${value}" as written for ${i.field}, in this file and the next (remembered in this browser)`)}">Allow “${esc(value)}”</button>` : '';
+      return `${allow} <button class="textlink small" data-goto="standardize" title="Fix it by hand on Standardize">edit</button>`;
+    }
     const c = state.checks.get(first.row)?.get(i.field)?.[0];
     if (c?.suggestion === undefined) return '';
     const theirs = [c.suggestion, ...Object.values(c.also ?? {})].join(' / ');
@@ -68,6 +73,10 @@ function renderIssues() {
     const drop = i.drop ? ' <span class="drop" title="These rows are not exported">dropped</span>' : '';
     return `<tr><td>${who}</td><td><span class="muted">${KIND_LABEL[i.kind]}</span> ${esc(i.field)}${i.kind === 'missing' && !i.drop ? '' : `: ${esc(i.message)}`}${fix(g)}</td><td class="muted nowrap">${rowsCell(rows)}${drop}</td></tr>`;
   }).join('') || '<tr><td colspan="3" class="muted">No issues.</td></tr>');
+  // Values allowed so far, each with × to flag it again.
+  const allowed = [...state.allowed].flatMap(([f, set]) => [...set].map((v) => [f, v]));
+  $('allowed').hidden = !allowed.length;
+  $('allowed').innerHTML = '<span class="muted">Allowed:</span> ' + allowed.map(([f, v]) => `<span class="chip" title="${esc(f)}">${esc(v)} <button class="textlink small" data-disallow="${esc(f)}" data-value="${esc(v)}" title="Flag it again">×</button></span>`).join(' ');
 }
 
 document.querySelectorAll('#review-view button').forEach((b) => (b.onclick = () => {
@@ -77,6 +86,14 @@ document.querySelectorAll('#review-view button').forEach((b) => (b.onclick = () 
 $('step-review').addEventListener('click', (e) => {
   const m = e.target.closest('[data-map]');
   if (m) return showField(m.dataset.map);
+  const a = e.target.closest('[data-allow], [data-disallow]');
+  if (a) {
+    const f = a.dataset.allow ?? a.dataset.disallow;
+    if (!state.allowed.has(f)) state.allowed.set(f, new Set());
+    if (a.dataset.allow) state.allowed.get(f).add(a.dataset.value); else state.allowed.get(f).delete(a.dataset.value);
+    saveAllowed();
+    return run();
+  }
   onCardClick(e, renderReview);
 });
 

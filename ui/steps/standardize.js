@@ -60,6 +60,8 @@ export function renderStandardize() {
 // They're cleaned and checked like any other value, so a mistyped NPI stays flagged.
 export function applyFixes() {
   for (const r of state.result.records) {
+    // Values allowed as written (a sender's own provider types): no longer flagged.
+    r.issues = r.issues.filter((i) => !(i.kind === 'format' && state.allowed.get(i.field)?.has(r.values[i.field])));
     const fixes = state.fixes.get(r.row);
     if (!fixes?.size) continue;
     r.issues = r.issues.filter((i) => !(fixes.has(i.field) && (i.kind === 'format' || i.kind === 'missing')));
