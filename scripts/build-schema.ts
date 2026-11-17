@@ -1,14 +1,14 @@
-// Builds src/schema.generated.ts and docs/canonical_fields.md from schema/fields.yaml and schema/vocab.yaml.
+// Builds src/schema/schema.generated.ts and docs/canonical_fields.md from schema/fields.yaml and schema/vocab.yaml.
 //   node scripts/build-schema.ts          write the files
 //   node scripts/build-schema.ts --check  fail if either is out of date (CI)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parse } from 'yaml';
-import { FILE_FIELDS } from '../src/file.ts';
-import { VALUE_TYPES } from '../src/profile/value-type.ts';
+import { FILE_FIELDS } from '../src/map/file.ts';
+import { VALUE_TYPES } from '../src/map/profile/value-type.ts';
 
 const root = new URL('..', import.meta.url);
 const read = (path: string) => parse(readFileSync(new URL(path, root), 'utf8'));
-const out = new URL('src/schema.generated.ts', root);
+const out = new URL('src/schema/schema.generated.ts', root);
 const docOut = new URL('docs/canonical_fields.md', root);
 
 const fields = read('schema/fields.yaml');
@@ -29,7 +29,7 @@ export const schema: Schema = ${JSON.stringify({ fields, vocab }, null, '\t')};
 const doc = dictionary(fields);
 
 if (process.argv.includes('--check')) {
-	const files: [URL, string, string][] = [[out, source, 'src/schema.generated.ts'], [docOut, doc, 'docs/canonical_fields.md']];
+	const files: [URL, string, string][] = [[out, source, 'src/schema/schema.generated.ts'], [docOut, doc, 'docs/canonical_fields.md']];
 	const stale = files.filter(([file, text]) => readFileSync(file, 'utf8') !== text);
 	if (stale.length) {
 		console.error(`${stale.map(([, , name]) => name).join(' and ')} out of date. Run \`pnpm schema\`.`);
@@ -38,7 +38,7 @@ if (process.argv.includes('--check')) {
 } else {
 	writeFileSync(out, source);
 	writeFileSync(docOut, doc);
-	console.log(`${ids.length} fields → src/schema.generated.ts, docs/canonical_fields.md`);
+	console.log(`${ids.length} fields → src/schema/schema.generated.ts, docs/canonical_fields.md`);
 }
 
 // The data dictionary: one table per entity, with each field's level per action.
