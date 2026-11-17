@@ -167,6 +167,16 @@
   <div id="raw-wrap" class="scroll"><table id="raw"></table></div>
 </dialog>
 
+<!-- Download: the workbook's sheets (untick one to leave it out) and its first rows, to confirm. -->
+<dialog id="download-dialog" class="rm-dialog" aria-labelledby="download-title">
+  <header class="dialog-bar"><b id="download-title">Download</b> <span id="download-name" class="muted small"></span>
+    <form method="dialog" class="nav-right"><button>Cancel</button></form></header>
+  <div class="scroll"><table id="download-sheets"></table></div>
+  <h4>Data <span id="download-count" class="muted normal"></span></h4>
+  <div class="scroll"><table id="download-preview"></table></div>
+  <p class="dialog-foot"><span id="download-note" class="muted small"></span><button type="button" id="download-confirm" class="primary">Download</button></p>
+</dialog>
+
 <!-- How it works: one dialog for every step; the current step's section is marked. -->
 <dialog id="how-dialog">
   <h2>How Roster Mapper works</h2>
@@ -219,7 +229,7 @@
     <li>Each card carries the checks: values are taken as confirmed unless marked: ⚠ a suggestion ("Use" accepts it), ✕ a failure. Click an NPI to open it in the NPPES NPI Registry.</li>
     <li>Click a card to pin it and see its problems: "add" types a missing value, "edit address" opens every part of a practice or billing address to fix together (the new address is looked up again).</li>
     <li>Issues show once per provider, location or billing entity (click its name to see its card), each with its fix: "mapping" opens the field in Mapping, "edit" types the right value, "Use" applies a source's value to every row of the entity, "Allow" keeps a sender's own code (such as AHP) as written, in this file and the next, until you remove it under Issues.</li>
-    <li><b>Download</b> saves one workbook with every sheet not ignored: Summary, Mapping, Data, Issues and Left out.</li></ul></section>
+    <li><b>Download</b> shows what the workbook will hold first: each sheet with its counts (untick one to leave it out) and the first rows. Confirm to save one workbook with every sheet kept: Summary, Mapping, Data, Issues and Left out.</li></ul></section>
   <form method="dialog"><button>Close</button></form>
 </dialog>
 

@@ -61,15 +61,53 @@ $('sheet-tabs').onclick = (e) => {
   if (b && b.dataset.sheet !== state.sheet) { remember(); pickSheet(b.dataset.sheet); }
 };
 
-// One workbook for the file: every sheet not ignored, each as it was left here (or as the run made it).
-$('download').onclick = () => {
+// Download: a dialog first, with the workbook's sheets (untick one to leave it out, as × on its tab
+// does) and its first rows, then one workbook for the file: every sheet kept, each as it was left here.
+const PREVIEW_ROWS = 12;
+function downloadResults() {
   remember();
   const f = state.files[state.current];
-  const results = state.sheets.map(({ name }) => name).filter((n) => !isIgnored(state.name, n))
-    .map((n) => sheetMemo.get(`${state.name}|${n}`)?.result ?? f?.results?.find((r) => r.sheet === n)).filter((r) => r?.records.length);
-  if (!results.length) return;
-  const name = results.length === 1 ? outputName(results[0].file, 'xlsx') : `RM_${state.name.replace(/\.[^.]+$/, '').replace(/\s+/g, '') || 'roster'}.xlsx`;
-  download(toReport(state.name, results, { notes: { Checked: checkedWith() } }), XLSX, name);
+  return state.sheets.map(({ name }) => ({ name, result: sheetMemo.get(`${state.name}|${name}`)?.result ?? f?.results?.find((r) => r.sheet === name), on: !isIgnored(state.name, name) }));
+}
+const downloadName = (results) => results.length === 1 ? outputName(results[0].file, 'xlsx') : `RM_${state.name.replace(/\.[^.]+$/, '').replace(/\s+/g, '') || 'roster'}.xlsx`;
+
+function renderDownload() {
+  const sheets = downloadResults();
+  const kept = sheets.filter((s) => s.on && s.result?.records.length).map((s) => s.result);
+  const num = (n, cls = '') => `<td class="num${cls ? ` ${cls}` : ''}">${n}</td>`;
+  $('download-name').textContent = kept.length ? downloadName(kept) : '';
+  $('download-sheets').innerHTML = '<tr><th></th><th>Sheet</th><th>Action</th><th class="num">Rows</th><th class="num">Moved forward</th><th class="num">Left out</th><th class="num">With issues</th></tr>' +
+    sheets.map(({ name, result, on }) => {
+      const c = result ? counts(result.records) : null;
+      return `<tr class="${on ? '' : 'off'}"><td><input type="checkbox" data-include="${esc(name)}"${on ? ' checked' : ''} aria-label="Include ${esc(name)}"${state.sheets.length < 2 ? ' disabled' : ''}></td><td>${esc(name)}</td><td>${esc(result?.action.action ?? '')}</td>` +
+        (c ? num(c.rows) + num(c.movedForward) + num(c.leftOut, c.leftOut ? 'bad' : '') + num(c.withIssues) : '<td colspan="4" class="muted">not run</td>') + '</tr>';
+    }).join('');
+  // The first rows moving forward, a few telling columns: who, where, billed through whom.
+  const rows = kept.flatMap((r) => r.records.filter((x) => !isDropped(x)).map((x) => ({ sheet: r.sheet, x })));
+  const v = (x, f) => x.values[f] ?? '';
+  const cols = [['Sheet', (r) => r.sheet], ['Row', (r) => r.x.row], ['Action', (r) => v(r.x, 'network.action_type')],
+    ['Provider', (r) => [v(r.x, 'provider.last_name'), v(r.x, 'provider.first_name')].filter(Boolean).join(', ')], ['NPI', (r) => v(r.x, 'provider.npi')],
+    ['Location', (r) => [v(r.x, 'practice.address_1'), v(r.x, 'practice.city'), v(r.x, 'practice.state')].filter(Boolean).join(', ')],
+    ['Billing', (r) => v(r.x, 'billing.legal_name') || v(r.x, 'billing.tax_id')], ['Issues', (r) => r.x.issues.length || '']];
+  $('download-count').textContent = rows.length > PREVIEW_ROWS ? `first ${PREVIEW_ROWS} of ${rows.length} rows` : plural(rows.length, 'row');
+  $('download-preview').innerHTML = `<tr>${cols.map(([h]) => `<th>${h}</th>`).join('')}</tr>` +
+    rows.slice(0, PREVIEW_ROWS).map((r) => `<tr>${cols.map(([, get]) => `<td>${esc(get(r))}</td>`).join('')}</tr>`).join('') ||
+    `<tr><td colspan="${cols.length}" class="muted">No rows move forward.</td></tr>`;
+  const left = kept.reduce((n, r) => n + r.records.filter(isDropped).length, 0);
+  $('download-note').textContent = `Summary, Mapping, Data, Issues and Left out tabs${left ? ` · ${plural(left, 'row')} on Left out, with why` : ''}`;
+  $('download-confirm').disabled = !kept.length;
+}
+$('download').onclick = () => { renderDownload(); $('download-dialog').showModal(); };
+$('download-dialog').onclick = (e) => { if (e.target === $('download-dialog')) $('download-dialog').close(); };
+$('download-sheets').onchange = (e) => {
+  const box = e.target.closest('[data-include]');
+  if (box) { toggleIgnored(state.name, box.dataset.include); renderDownload(); }
+};
+$('download-confirm').onclick = () => {
+  const kept = downloadResults().filter((s) => s.on && s.result?.records.length).map((s) => s.result);
+  if (!kept.length) return;
+  download(toReport(state.name, kept, { notes: { Checked: checkedWith() } }), XLSX, downloadName(kept));
+  $('download-dialog').close();
 };
 
 
@@ -291,7 +329,7 @@ function renderPreview() {
       // The connections line only shows on narrow screens, where there are no lines between cards.
       return `<li data-kind="${kind}" data-i="${i}">${cardHtml(kind, e)}` +
         `<span class="links-line">${linkText[kind](i)} · ${plural(e.rows.length, 'row')}${e.issues ? ` · <em class="issues">${plural(e.issues, 'issue')}</em>` : ''}</span>` +
-        `<dl>${fields}<dt>rows</dt><dd>${e.rows.join(', ')}</dd></dl></li>`;
+        `<dl>${fields}<dt>rows</dt><dd title="${esc(e.rows.length > 1 ? `Rows ${e.rows.join(', ')}` : '')}">${plural(e.rows.length, 'row')}</dd></dl></li>`;
     }).join('') || `<li class="empty"><span class="none">${NONE[kind]}</span></li>`;
   }
   $('graph').querySelectorAll('li[data-kind]').forEach((li) => {

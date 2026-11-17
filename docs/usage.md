@@ -55,7 +55,7 @@ In a terminal it waits for Enter before the next step; `q` stops. Piped, it prin
   - its providers, locations and billing as a graph (the default) or a table, each card carrying its checks: problem values highlighted (anything unmarked is taken as confirmed), each NPI a link to the NPPES NPI Registry, "Use" for a suggestion;
   - a card, clicked, shows its problems: "add" for a missing value, "edit address" for every part of an address at once;
   - its issues, once per provider, location or billing entity (its name shows its card), each with its fix: "mapping", "edit" (type the right value), "Use" (a source's value, for every row of the entity) or "Allow" (a sender's own code kept as written);
-  - **Mapping** (which column fills each field, as a dialog), **Raw data** (the sheet as it is in the file; click a row to make it the header), **Run checks** (look everything up again) and **Download** (one workbook with every sheet not ignored, as left here).
+  - **Mapping** (which column fills each field, as a dialog), **Raw data** (the sheet as it is in the file; click a row to make it the header), **Run checks** (look everything up again) and **Download** (shows each sheet's counts and the first rows to confirm, then saves one workbook with every sheet kept, as left here).
 
 Every change recalculates live, and each sheet keeps its changes when you switch between them. The status bar shows progress and the open sheet's counts.
 
