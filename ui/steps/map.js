@@ -3,7 +3,7 @@ import { overrides, render, run } from '../app.js';
 import { fieldLevel, schema } from '../rostermapper.js';
 import { MAPPABLE_IDS, download, esc, fieldTip, oneLine, plural, shortHeader, specOf } from '../lib.js';
 import { state } from '../state.js';
-// ─── 2 Map ──────────────────────────────────────────────────
+// ─── Mapping (a dialog over Review) ──────────────────────────────────────────────────
 const ENTITY_TITLES = { provider: 'Provider', practice: 'Practice', billing: 'Billing', network: 'Network' };
 const colBadge = (c) => `<span class="col">${c.letter}</span>` +
   (oneLine(c.header) ? `<span title="${esc(oneLine(c.header))}">${esc(shortHeader(c.header))}</span>` : '<span class="muted">(blank)</span>');
@@ -53,7 +53,7 @@ function fitPills() {
   });
 }
 let fitTimer;
-window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => state.step === 'map' && fitPills(), 100); });
+window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => $('map-dialog').open && fitPills(), 100); });
 
 // The action set on step 0 ('' = detect), kept in step with its select there.
 function setAction(v) {
@@ -140,14 +140,13 @@ export function renderMap() {
     return `<button class="pill on value" data-edit-const="${id}" title="${esc(`${tip} Click to change.`)}"><span class="lt">=</span>${esc(text)}` +
       `${removable ? `<span class="x" data-clear-const="${id}" title="Remove">×</span>` : ''}</button>`;
   };
-  // The row's last control: "…" (on hover) to enter a value or pick any column; on a required
-  // field with no column, value or candidate, a ✎ instead, always shown; on an optional field in
-  // that state, nothing (map it from Columns not mapped).
+  // The row's last control: "…" to enter a value or pick any column, on hover (always shown on a
+  // field with nothing in it); on a required field with no column, value or candidate, a ✎ instead.
   const control = (id, required, list) => {
     if (state.editingConst === id) return '';
     const empty = !mapping[id] && !list.length && !constant(id) && !actionValue(id);
-    if (!empty) return `<button class="pill any" data-edit="${id}" title="Enter a value, or pick any column">…</button>`;
-    return required ? `<button class="pill pen" data-edit="${id}" title="Enter a value">✎</button>` : '';
+    if (empty && required) return `<button class="pill pen" data-edit="${id}" title="Enter a value, or pick any column">✎</button>`;
+    return `<button class="pill any" data-edit="${id}" title="Enter a value, or pick any column">…</button>`;
   };
   const pills = (id, required = false) => {
     const cur = actionValue(id) ? undefined : mapping[id]?.column;
@@ -193,7 +192,7 @@ export function renderMap() {
       else if (level(name) === 'required') under = note(`missing: required for ${required(name).join(', ')}`, 'bad');
       else under = state.cleared.has(id) ? note('left empty here') : '';
       const cls = a || constant(id) || actionValue(id) ? '' : level(name) === 'required' && id !== 'network.action_type' ? 'missing-required' : 'empty';
-      return `<tr class="${cls}"><td>${fieldName(entity, name)}</td><td class="cands">${pills(id, level(name) === 'required')}${under}</td></tr>`;
+      return `<tr class="${cls}" data-field="${id}"><td>${fieldName(entity, name)}</td><td class="cands">${pills(id, level(name) === 'required')}${under}</td></tr>`;
     });
     const n = names.filter((name) => mapping[`${entity}.${name}`]).length;
     return `<section class="fieldset ${entity}"><h3>${ENTITY_TITLES[entity] ?? entity} <span class="muted">${n} of ${names.length} mapped</span></h3>` +
@@ -272,13 +271,13 @@ export function renderMap() {
     `<div class="colgroup"><h4>${name} <span class="muted">${cols.length}</span></h4><div class="chips">${chips(cols)}</div></div>`).join('') ||
     '<p class="muted">Every column is mapped.</p>';
 
-  document.querySelectorAll('#step-map [data-column]').forEach((b) => (b.onclick = () => pickField(b, columns[+b.dataset.column])));
-  document.querySelectorAll('#step-map [data-pick]').forEach((b) => (b.onclick = (e) => {
+  document.querySelectorAll('#map-dialog [data-column]').forEach((b) => (b.onclick = () => pickField(b, columns[+b.dataset.column])));
+  document.querySelectorAll('#map-dialog [data-pick]').forEach((b) => (b.onclick = (e) => {
     if (e.target.closest('[data-clear]')) return clearField(b.dataset.pick);
     if (!b.classList.contains('on')) assign(b.dataset.pick, +b.dataset.col);
   }));
-  document.querySelectorAll('#step-map [data-edit]').forEach((b) => (b.onclick = () => { state.editingConst = b.dataset.edit; renderMap(); }));
-  document.querySelectorAll('#step-map [data-edit-const]').forEach((b) => (b.onclick = (e) => {
+  document.querySelectorAll('#map-dialog [data-edit]').forEach((b) => (b.onclick = () => { state.editingConst = b.dataset.edit; renderMap(); }));
+  document.querySelectorAll('#map-dialog [data-edit-const]').forEach((b) => (b.onclick = (e) => {
     const id = b.dataset.editConst;
     if (e.target.closest('[data-clear-const]')) {
       if (id === 'network.action_type') setAction('');
@@ -288,7 +287,7 @@ export function renderMap() {
     state.editingConst = id;
     renderMap();
   }));
-  document.querySelectorAll('#step-map [data-editor]').forEach((box) => {
+  document.querySelectorAll('#map-dialog [data-editor]').forEach((box) => {
     const id = box.dataset.editor;
     const entry = box.querySelector('[data-const]');
     const colpick = box.querySelector('[data-colpick]');
@@ -313,19 +312,19 @@ export function renderMap() {
     entry.focus();
     try { entry.showPicker(); } catch {} // the calendar (or the action list) opens right away when the browser allows it
   });
-  document.querySelectorAll('#step-map [data-expand]').forEach((b) => (b.onclick = () => {
+  document.querySelectorAll('#map-dialog [data-expand]').forEach((b) => (b.onclick = () => {
     const id = b.dataset.expand;
     if (!state.expandedRows.delete(id)) state.expandedRows.add(id);
     renderMap();
   }));
-  document.querySelectorAll('#step-map [data-assign]').forEach((b) => (b.onclick = () => assign(b.dataset.assign, +b.dataset.col)));
+  document.querySelectorAll('#map-dialog [data-assign]').forEach((b) => (b.onclick = () => assign(b.dataset.assign, +b.dataset.col)));
   fitPills();
-  document.querySelectorAll('#step-map [data-hidden]').forEach((b) => (b.onclick = () => {
+  document.querySelectorAll('#map-dialog [data-hidden]').forEach((b) => (b.onclick = () => {
     const entity = b.dataset.hidden;
     if (!state.showHidden.delete(entity)) state.showHidden.add(entity);
     renderMap();
   }));
-  document.querySelectorAll('#step-map [data-family]').forEach((b) => (b.onclick = () => {
+  document.querySelectorAll('#map-dialog [data-family]').forEach((b) => (b.onclick = () => {
     const key = b.dataset.family;
     if (!state.openFamilies.delete(key)) state.openFamilies.add(key);
     renderMap();

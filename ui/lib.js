@@ -9,7 +9,6 @@ const MAX_HEADER = 40;
 export const shortHeader = (s) => { const t = oneLine(s); return t.length > MAX_HEADER ? `${t.slice(0, MAX_HEADER - 1).trimEnd()}…` : t; };
 export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 export const FIELD_IDS = Object.entries(schema.fields).flatMap(([group, fields]) => Object.keys(fields).map((name) => `${group}.${name}`));
-export const STEPS = ['upload', 'map', 'standardize', 'validate', 'review', 'export'];
 // Hover text for a field name: what it holds (first sentence) and how its values are standardized.
 export const specOf = (id) => { const [g, n] = id.split('.'); return schema.fields[g][n]; };
 // Fields typed on Upload (contract ID, sender email): one value for every row, never a column's, and

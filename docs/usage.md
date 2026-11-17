@@ -27,7 +27,7 @@ rostermapper --help                      # every option
 
 What the terminal shows: each sheet's action, category and columns mapped, and how many rows moved forward, were left out and have issues. The details are in the workbook (see [Export](steps.md#6-export)). `--why` prints the mapping and the reasons behind it; `--json` prints the whole result.
 
-Options: `-s` sheet, `-a` action (`add`, `update`, `term`), `-c` category (`individual`, `facility`), `--header-row`, `--effective-date`, `--contract-id`, `--sender-email`, `-m` mapping file, `-o` output, `--no-nppes`, `--no-census`, `--no-cache`, `--keep-dropped`, `--steps`, `--why`, `--json`, `--ui`. `rostermapper --help` explains each.
+Options: `-s` sheet, `-a` action (`add`, `update`, `term`), `-c` category (`individual`, `facility`), `--header-row`, `--effective-date`, `--contract-id`, `--sender-email`, `--allow` (keep a sender's own codes as written, like `--allow provider_type=AHP,PHYS`), `-m` mapping file, `-o` output, `--no-nppes`, `--no-census`, `--no-cache`, `--keep-dropped`, `--steps`, `--why`, `--json`, `--ui`. `rostermapper --help` explains each.
 
 The exit code is 1 when the arguments are wrong, a file can't be read, or (in a batch) any file failed.
 
@@ -49,10 +49,15 @@ In a terminal it waits for Enter before the next step; `q` stops. Piped, it prin
 `rostermapper --ui` (or `rostermapper` with no file, in a terminal) serves the UI on `127.0.0.1` and opens it. Only this machine can connect; files are read in the browser, and only NPIs and addresses go out, through the local server, to NPPES and the Census geocoder. Set `PORT` to choose the port and `BROWSER=none` to not open a browser.
 
 - **New run**: drop files or a folder, set the options (action, default effective date, contract ID, sender email, mapping file) and which outside sources may be used.
-- **Run** (the default) runs every step on every file, as the command line does, then shows **Results**: the workbook's tables (Sheets, Mapping, Issues, Left out) across every file, with a filter, and the workbooks to download ("Download all": a zip with `summary.xlsx`).
-- **Step by step** opens a file at Upload and goes through Map, Standardize, Validate, Review and Export one view at a time. Every change (a column remapped, a value fixed by hand, a suggestion accepted) recalculates live. "Run all steps" finishes the file from wherever you are. From Results, click a file to open it in the steps.
+- Every file runs through every step, as the command line does, then **Results** shows the workbook's tables (Sheets, Mapping, Issues, Left out) across every file, with a filter, and the workbooks to download ("Download all": a zip with `summary.xlsx`).
+- Click a file to open its **Review**, the file's one page:
+  - its name and totals, then its sheets as tabs: click one to open it, × to ignore it (left out of Results and the download), ↺ to bring it back;
+  - its providers, locations and billing as a graph (the default) or a table, each card carrying its checks: problem values highlighted (anything unmarked is taken as confirmed), each NPI a link to the NPPES NPI Registry, "Use" for a suggestion;
+  - a card, clicked, shows its problems: "add" for a missing value, "edit address" for every part of an address at once;
+  - its issues, once per provider, location or billing entity (its name shows its card), each with its fix: "mapping", "edit" (type the right value), "Use" (a source's value, for every row of the entity) or "Allow" (a sender's own code kept as written);
+  - **Mapping** (which column fills each field, as a dialog), **Raw data** (the sheet as it is in the file; click a row to make it the header), **Run checks** (look everything up again) and **Download** (shows each sheet's counts and the first rows to confirm, then saves one workbook with every sheet kept, as left here).
 
-The rail on the left lists the files and, for the file open, its steps with a count each (columns mapped, values not cleaned, checks failed, rows moving forward). The status bar shows progress and the open sheet's counts.
+Every change recalculates live, and each sheet keeps its changes when you switch between them. The status bar shows progress and the open sheet's counts.
 
 ## Library
 

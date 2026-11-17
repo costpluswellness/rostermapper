@@ -29,6 +29,8 @@ export interface Session {
 	effectiveDate?: string | undefined;
 	/** --contract-id, --sender-email: input field id → value for every record. */
 	inputs?: Readonly<Record<string, string>> | undefined;
+	/** --allow: enum field id → values kept as written. */
+	allowed?: Readonly<Record<string, readonly string[]>> | undefined;
 }
 
 const TYPES: Record<string, string> = {

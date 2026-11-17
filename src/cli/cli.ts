@@ -6,6 +6,8 @@ import { basename, extname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 import { ACTIONS, type Action } from '../map/action';
+import { fieldList } from '../schema/fields';
+import { schema } from '../schema/schema.generated';
 import { FILE_CATEGORIES, type FileCategory } from '../map/file';
 import { bodyRows, detectHeaderRow } from '../map/profile';
 import { isDropped } from '../standardize/records';
@@ -55,6 +57,9 @@ Options
                          for rows whose effective date is blank (each gets a note)
       --contract-id <id>        write this contract ID into every record
       --sender-email <email>    write the sender's email into every record
+      --allow <field=values>    keep these values as written instead of flagging
+                         them, for a field with a fixed list (repeatable):
+                         --allow provider_type=AHP,PHYS
   -m, --mapping <file>   a CSV of overrides, "column,field" per line: the field
                          for a header, or "ignore" to skip that column
       --no-nppes         don't send NPIs to the NPPES NPI Registry
@@ -124,6 +129,7 @@ const OPTIONS = {
 	'effective-date': { type: 'string' },
 	'contract-id': { type: 'string' },
 	'sender-email': { type: 'string' },
+	allow: { type: 'string', multiple: true },
 	'no-nppes': { type: 'boolean' },
 	'no-census': { type: 'boolean' },
 	'keep-dropped': { type: 'boolean' },
@@ -146,6 +152,8 @@ interface Settings {
 	category?: FileCategory | undefined;
 	constants: Record<string, string>;
 	mapping?: ReturnType<typeof readMappingFile> | undefined;
+	/** --allow: enum field id → values kept as written. */
+	allowed?: Record<string, string[]> | undefined;
 }
 
 /** Run the CLI with arguments (without "node" and the script path). Resolves to the exit code. */
@@ -198,6 +206,16 @@ function check(opts: Flags, err: Output): Settings | undefined {
 	// --contract-id and --sender-email: typed once, written into every record.
 	if (opts['contract-id']?.trim()) settings.constants['network.contract_id'] = opts['contract-id'].trim();
 	if (opts['sender-email']?.trim()) settings.constants['network.sender_email'] = opts['sender-email'].trim();
+	// --allow provider_type=AHP,PHYS: the field by its id or its name, if it has a fixed list of values.
+	const enums = fieldList(schema).filter((f) => f.spec.type === 'enum');
+	for (const arg of opts.allow ?? []) {
+		const [name = '', list = ''] = arg.split(/=(.*)/s);
+		const field = enums.find((f) => f.id === name.trim()) ?? enums.find((f) => f.name === name.trim());
+		const values = list.split(',').map((v) => v.trim()).filter(Boolean);
+		if (!field || !values.length) return fail(`--allow must be field=value,value for a field with a fixed list: ${enums.map((f) => f.name).join(', ')}.`);
+		settings.allowed ??= {};
+		settings.allowed[field.id] = [...(settings.allowed[field.id] ?? []), ...values];
+	}
 	if (opts.mapping !== undefined) {
 		try {
 			settings.mapping = readMappingFile(opts.mapping);
@@ -214,7 +232,7 @@ function runOptions(opts: Flags, s: Settings, io: Io, stepOut: Output) {
 	const sources = { nppes: !opts['no-nppes'], census: !opts['no-census'] };
 	const showProgress = io.progress ?? !!process.stderr.isTTY;
 	return {
-		headerRow: s.headerRow, action: s.action, category: s.category, overrides: s.mapping?.overrides, constants: s.constants, effectiveDate: s.effectiveDate,
+		headerRow: s.headerRow, action: s.action, category: s.category, overrides: s.mapping?.overrides, constants: s.constants, effectiveDate: s.effectiveDate, allowed: s.allowed,
 		sources, lookup: io.lookup ?? liveLookup,
 		progress: showProgress ? (done: number, total: number) => io.err.write(`\rChecking ${done} of ${total}…${done === total ? '\r\x1b[K' : ''}`) : undefined,
 		onStep: opts.steps ? stepper(io, stepOut) : undefined,
@@ -426,4 +444,5 @@ const lookups = (opts: Flags): Pick<Session, 'nppes' | 'census'> => ({
 	...(opts['no-census'] && { census: false }),
 });
 
-const withInputs = (s: Settings) => (Object.keys(s.constants).length ? { inputs: s.constants } : {});
+// What the UI gets from the flags: --contract-id and --sender-email as inputs, --allow's values.
+const withInputs = (s: Settings) => ({ ...(Object.keys(s.constants).length && { inputs: s.constants }), ...(s.allowed && { allowed: s.allowed }) });

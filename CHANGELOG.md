@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A blank taxonomy is filled with the provider's primary taxonomy from NPPES, applied like NPPES legal names and Census addresses (undo it in the UI)
+- `--allow field=values` (and the `allowed` option of `automap` and `runSheets`): keep a sender's own codes as written instead of flagging them, for fields with a fixed list, like `--allow provider_type=AHP,PHYS`
+- UI: one page per file, Review: its sheets as tabs (× ignores one), a graph or table whose cards carry the checks (problems highlighted, each NPI a link to the NPPES NPI Registry, "No taxonomy" and the like), its issues grouped by entity with their fixes (mapping, edit in place, "Use" for every row of the entity, "Allow" for a value outside a fixed list), Mapping and Raw data as dialogs, Run checks, and Download for one workbook of every sheet kept. The Map, Standardize, Validate and Export views and the Step by step mode are gone (`--steps` remains in the CLI)
 - One pipeline for the CLI, the UI and the library: `runSheets` runs map, standardize, validate and review the same way everywhere
 - `--steps` runs one step at a time and prints each step's result (read, map, standardize, validate, review, export), waiting for Enter between steps in a terminal
 - `rostermapper/node`: `mapFile`, `mapFiles` and `writeOutput`, what the CLI runs, for use without the CLI or the UI

@@ -1,23 +1,21 @@
 // Roster Mapper's UI, served by the CLI (rostermapper --ui [roster.xlsx]). A workbench: the rail on the
-// left lists the files and, for the file open, its steps; the main pane shows one view; the status bar
-// at the bottom shows progress and moves between steps.
+// left lists the files; the main pane shows New run (files and options), Results (what the run did to
+// every file) or one file's Review; the status bar at the bottom shows progress.
 //
-// Two modes, as in the CLI:
-// - Run (the default) runs every step on every file, as `rostermapper <files>` does (runSheets), and
-//   shows Results: the workbook's tables, and a workbook per sheet to download.
-// - Step by step opens a file at Upload and goes through Map, Standardize, Validate, Review and Export
-//   one view at a time, every change recalculated live: to see why a roster maps the way it does.
+// Every file runs through every step, as `rostermapper <files>` does (runSheets). A file opens at Review,
+// its one page: its sheets along the top, its providers, locations and billing as a graph or table with
+// the checks on each card, its issues with their fixes, and Mapping and Raw data as dialogs. Every change
+// is recalculated live (automap on the open sheet). Download saves one workbook for the file.
 // Files are read in this browser; only NPIs and addresses go out, to NPPES and the Census geocoder.
-import { automap, detectHeaderRow, groupEntities, isBlank, isDropped, parseMapping, readWorkbook, runSheets, counts } from './rostermapper.js';
-import { $, LOOKUP, STEPS, esc, oneLine, plural } from './lib.js';
-import { MODE_KEY, SOURCES_KEY, state } from './state.js';
+import { automap, detectHeaderRow, groupEntities, isDropped, parseMapping, readWorkbook, runSheets } from './rostermapper.js';
+import { $, LOOKUP, esc, oneLine } from './lib.js';
+import { SOURCES_KEY, allowedOption, state } from './state.js';
 import { renderFiles, renderResults } from './results.js';
 import { renderUpload } from './steps/upload.js';
 import { renderMap } from './steps/map.js';
-import { applyFixes, renderStandardize } from './steps/standardize.js';
-import { applyValidation, renderValidate, runChecks } from './steps/validate.js';
+import { applyFixes } from './steps/standardize.js';
+import { applyValidation, runChecks } from './steps/validate.js';
 import { renderReview } from './steps/review.js';
-import { renderExport } from './steps/export.js';
 
 // ─── Sources: which lookups may send data out ───────────────
 export function setSource(kind, on) {
@@ -25,7 +23,7 @@ export function setSource(kind, on) {
   try { localStorage.setItem(SOURCES_KEY, JSON.stringify(state.sources)); } catch { /* not remembered */ }
   $(`use-${kind}`).checked = on;
   if (state.result) run(); // hides or shows that source's checks
-  // Turned on with Validate already run: look this source up now (the CLI's server keeps earlier answers).
+  // Turned on with checks already run: look this source up now (the CLI's server keeps earlier answers).
   if (on && state.checked && !state.checking) runChecks([kind]);
 }
 for (const kind of ['nppes', 'census']) {
@@ -44,43 +42,34 @@ $('how').onclick = () => {
 $('how-dialog').onclick = (e) => { if (e.target === $('how-dialog')) $('how-dialog').close(); }; // click outside closes
 
 // ─── Navigation ─────────────────────────────────────────────
-// Views: upload (a new run's files and options), results, and the steps of the file open.
+// Views: upload (a new run's files and options), results, and review (the file open).
+const VIEWS = ['upload', 'results', 'review'];
 export function go(step) {
-  if (step !== 'upload' && step !== 'results' && !state.result) return;
+  if (step === 'review' && !state.result) step = 'upload';
   state.step = step;
-  for (const s of [...STEPS, 'results']) $(`step-${s}`).hidden = s !== step;
-  const inSteps = step !== 'results' && !!state.result;
-  $('filename').hidden = !inSteps;
-  $('rail-steps').hidden = !state.result;
-  $('rail-new').toggleAttribute('aria-current', step === 'upload' && !state.result);
+  for (const s of VIEWS) $(`step-${s}`).hidden = s !== step;
+  $('rail-new').toggleAttribute('aria-current', step === 'upload');
   $('rail-results').toggleAttribute('aria-current', step === 'results');
-  // Links, not buttons, so a portal's button styles don't turn the step list into a column of buttons.
-  $('steps').querySelectorAll('a[data-step]').forEach((a) => {
-    a.toggleAttribute('aria-current', inSteps && a.dataset.step === step);
-    a.toggleAttribute('aria-disabled', a.dataset.step !== 'upload' && !state.result);
-  });
-  const i = STEPS.indexOf(step);
-  $('step-nav').hidden = !inSteps;
-  $('back').disabled = i <= 0;
-  $('next').disabled = i === STEPS.length - 1 || !state.result;
-  $('run-all').disabled = !state.result || step === 'export';
-  $('map-links').hidden = step !== 'map' || !state.result;
   render();
-  // Lookups start the first time Validate opens for a sheet; "Run checks again" repeats them.
-  if (step === 'validate' && state.result && !state.checked) { state.checked = true; runChecks(); }
+  // Lookups run the first time a sheet opens (answers the run already got are reused); "Run checks" repeats them.
+  if (step === 'review' && !state.checked) { state.checked = true; runChecks(); }
 }
-$('steps').querySelectorAll('a[data-step]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); go(a.dataset.step); }));
-$('rail-new').onclick = (e) => { e.preventDefault(); closeFile(); go('upload'); };
-$('back').onclick = () => go(STEPS[STEPS.indexOf(state.step) - 1]);
-$('next').onclick = () => go(STEPS[STEPS.indexOf(state.step) + 1]);
+$('rail-new').onclick = (e) => { e.preventDefault(); remember(); closeFile(); go('upload'); };
 
-// Step by step: finish this file from wherever you are (lookups, trusted fixes) and go to Export.
-$('run-all').onclick = async () => {
-  if (!state.result) return;
-  $('run-all').disabled = true;
-  if (!state.checked) { state.checked = true; await runChecks(); }
-  go('export');
-};
+// ─── Mapping and Raw data: dialogs over the file's page ─────
+// The page behind recalculates with every change made in them.
+export function openMap(field) {
+  $('map-dialog').showModal();
+  renderMap();
+  const tr = field && document.querySelector(`#mapped tr[data-field="${CSS.escape(field)}"]`);
+  if (!tr) return;
+  tr.scrollIntoView({ block: 'center' });
+  tr.classList.add('flash');
+  setTimeout(() => tr.classList.remove('flash'), 1600);
+}
+$('open-map').onclick = () => openMap();
+$('open-raw').onclick = () => { $('raw-dialog').showModal(); renderUpload(); $('raw').querySelector('tr.header')?.scrollIntoView({ block: 'center' }); };
+for (const d of ['map-dialog', 'raw-dialog']) $(d).onclick = (e) => { if (e.target === $(d)) $(d).close(); }; // click outside closes
 
 /** The status bar's left side: progress while something runs, else what the open view holds. */
 export function status(text) {
@@ -91,34 +80,8 @@ export function status(text) {
 function renderStatus() {
   let text = state.progress;
   if (!text && state.step === 'results' && state.files.length) text = `Lookups: ${checkedWith()}`;
-  else if (!text && state.step !== 'results' && state.result) {
-    const c = counts(state.result.records);
-    text = `${state.sheet} · ${plural(c.rows, 'row')} · ${c.movedForward} moved forward · ${c.leftOut} left out · ${c.withIssues} with issues`;
-  }
+  // On Review the sheet's figures are at the top of the page: the bar only shows progress.
   $('status').textContent = text;
-}
-
-// Each step's count in the rail: what it found for the sheet open.
-function renderStepCounts() {
-  const r = state.result;
-  const badge = (step, text, tip = '', bad = false) => {
-    const el = $('steps').querySelector(`[data-count="${step}"]`);
-    el.textContent = text;
-    el.title = tip;
-    el.classList.toggle('bad', bad);
-  };
-  if (!r) return STEPS.forEach((s) => badge(s, ''));
-  const format = r.records.reduce((n, x) => n + x.issues.filter((i) => i.kind === 'format').length, 0);
-  const checks = [...state.checks.values()].flatMap((m) => [...m.values()].map((list) => list[0]?.status));
-  const fails = checks.filter((s) => s === 'fail').length;
-  const warns = checks.filter((s) => s === 'warn' || s === 'suggest').length;
-  const c = counts(r.records);
-  badge('upload', state.sheets.length > 1 ? `${state.sheets.length} sheets` : '');
-  badge('map', `${Object.keys(r.mapping).length}/${r.columns.length}`, 'Columns mapped', r.missing.length > 0);
-  badge('standardize', format ? `${format} ✕` : '✓', format ? 'Values that could not be cleaned' : 'Every value cleaned', format > 0);
-  badge('validate', !state.checked ? '' : state.checking ? '…' : `${fails ? `${fails} ✕ ` : ''}${warns ? `${warns} ⚠` : ''}`.trim() || '✓', 'Failed and flagged checks', fails > 0);
-  badge('review', String(state.kept.providers.length || state.kept.billing.length), 'Providers (or billing entities) moving forward');
-  badge('export', `${c.movedForward}`, `${c.movedForward} rows move forward, ${c.leftOut} left out`, c.leftOut > 0);
 }
 
 // ─── Loading ────────────────────────────────────────────────
@@ -132,6 +95,8 @@ async function boot() {
   $('effective-date').value = state.effectiveDate;
   state.inputs = { ...session.inputs };
   document.querySelectorAll('[data-input]').forEach((el) => (el.value = state.inputs[el.dataset.input] ?? ''));
+  // --allow: added to the values allowed in this browser, for this session.
+  for (const [f, list] of Object.entries(session.allowed ?? {})) for (const v of list) (state.allowed.get(f) ?? state.allowed.set(f, new Set()).get(f)).add(v);
   // --no-nppes / --no-census win for this session; the boxes still change them (and save).
   for (const kind of ['nppes', 'census']) if (session[kind] === false) { state.sources[kind] = false; $(`use-${kind}`).checked = false; }
   if (session.mappingName) loadMapping(session.mappingName, await (await fetch('mapping')).arrayBuffer());
@@ -140,9 +105,9 @@ async function boot() {
   const revive = (_, v) => (v && typeof v === 'object' && '$date' in v ? new Date(v.$date) : v);
   const sheets = JSON.parse(await (await fetch('file')).text(), revive);
   state.files = [{ name: session.name, read: async () => sheets, status: 'waiting' }];
-  if (state.mode === 'run') return runFiles();
-  state.current = 0;
-  loadSheets(session.name, sheets, session.sheet, session.headerRow);
+  // One file from the command line: run it, then open it.
+  await runFiles();
+  if (state.files[0]?.status === 'done') openFile(0, session.sheet, session.headerRow);
 }
 boot().catch((e) => { document.querySelector('.rm-main').insertAdjacentHTML('afterbegin', `<p class="rm-note">Could not start: ${esc(e.message)}. Is the CLI still running?</p>`); });
 
@@ -172,21 +137,8 @@ function loadSheets(name, sheets, sheet, headerRow) {
   state.name = name;
   state.sheets = sheets.filter((s) => s.rows.length);
   document.title = `${name} · Roster Mapper`;
-  $('filename').textContent = name;
-  $('drop').classList.add('loaded');
-  $('private-note').hidden = true;
-  $('drop-title').textContent = name;
-  $('drop-hint').textContent = 'drop or click to replace';
-  // Every sheet with data, as buttons: name and data-row count.
-  $('sheets').innerHTML = state.sheets.map((s) => {
-    const n = s.rows.slice(detectHeaderRow(s.rows) + 1).filter((r) => r?.some((c) => !isBlank(c))).length;
-    return `<button type="button" data-sheet="${esc(s.name)}">${esc(s.name)}<small>${plural(n, 'row')}</small></button>`;
-  }).join('');
-  $('sheets').hidden = state.sheets.length < 2; // one sheet: nothing to pick; its row count goes in the drop bar
-  $('sheets').querySelectorAll('button').forEach((b) => (b.onclick = () => pickSheet(b.dataset.sheet)));
   const first = state.sheets.find((s) => s.name === sheet) ?? state.sheets[0];
-  if (!first) { state.result = null; state.rows = []; $('drop-hint').textContent = 'This file has no data. Drop or choose another.'; return go('upload'); }
-  if (state.sheets.length === 1) $('drop-hint').textContent = `${$('sheets').querySelector('small').textContent} · drop or click to replace`;
+  if (!first) { state.result = null; state.rows = []; return go('upload'); }
   pickSheet(first.name, headerRow);
 }
 
@@ -196,17 +148,28 @@ function loadMapping(name, bytes) {
   run();
 }
 
-function pickSheet(name, headerRow) {
+// What was done on each sheet (suggestions used, values typed, the header row) and its result, so
+// switching sheets keeps it and Download has every sheet as left: "file|sheet" → choices and result.
+export const sheetMemo = new Map();
+export function remember() {
+  if (!state.result || !state.sheet) return;
+  const { accepted, declined, fixes, checked, headerRow } = state;
+  sheetMemo.set(`${state.name}|${state.sheet}`, { accepted, declined, fixes, checked, headerRow, result: { ...state.result, sheet: state.sheet } });
+}
+
+/** Open a sheet of the file open, as it was left. Call remember() first when leaving another sheet. */
+export function pickSheet(name, headerRow) {
+  const m = sheetMemo.get(`${state.name}|${name}`);
   state.sheet = name;
-  state.accepted = new Map(); // accepted suggestions belong to one sheet's rows
-  state.declined = new Set();
-  state.fixes = new Map(); // and so do values fixed by hand
+  state.accepted = m?.accepted ?? new Map(); // accepted suggestions belong to one sheet's rows
+  state.declined = m?.declined ?? new Set();
+  state.fixes = m?.fixes ?? new Map(); // and so do values fixed by hand
   state.checks = new Map();
-  state.checked = false;
-  $('sheets').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.sheet === name));
+  state.checked = m?.checked ?? false;
   state.rows = state.sheets.find((s) => s.name === name).rows;
   state.autoRow = detectHeaderRow(state.rows);
-  setHeaderRow(headerRow ?? state.autoRow);
+  state.selected = null;
+  setHeaderRow(headerRow ?? m?.headerRow ?? state.autoRow);
 }
 
 export function setHeaderRow(r) {
@@ -219,7 +182,7 @@ export function run() {
   if (!state.rows.length) return go(state.step);
   const options = {
     headerRow: state.headerRow, fileName: state.name, sheetName: state.sheet,
-    overrides: overrides(), unmapped: [...state.cleared], constants: { ...state.constants, ...state.inputs }, ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
+    overrides: overrides(), unmapped: [...state.cleared], constants: { ...state.constants, ...state.inputs }, allowed: allowedOption(), ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
   };
   state.result = automap(state.rows, options); // always cleaned: these values move forward
   // The mapping before any change made on the Map step: its scores order each row's pills, so
@@ -229,14 +192,19 @@ export function run() {
     state.baseline = Object.keys(state.edits).length || state.cleared.size ? automap(state.rows, { ...options, overrides: state.mapping?.overrides ?? {}, unmapped: [] }) : state.result;
     state.baseKey = baseKey;
   }
-  state.raw = null; // as written, only for Standardize's "As written" view: computed when asked (see rawRecords)
+  state.raw = null; // as written, for an edit's "was": computed when asked (see rawRecords)
   state.options = options;
   applyFixes();
   applyValidation(); // accepted suggestions, and failures from Validate's checks, as issues
   state.byRow = new Map(state.result.records.map((r, i) => [r.row, { clean: r, get raw() { return rawRecords()[i]; } }]));
-  state.entities = groupEntities(state.result.records); // every row, so Validate can fix a dropped one
+  // The pinned card, by its first row, so it stays pinned when its place in the list moves.
+  const LIST = { provider: 'providers', practice: 'locations', billing: 'billing' };
+  const pin = state.selected && { kind: state.selected.kind, row: state.kept?.[LIST[state.selected.kind]][state.selected.i]?.rows[0] };
+  state.entities = groupEntities(state.result.records); // every row, so a dropped one can be fixed
   state.kept = groupEntities(state.result.records.filter((r) => !isDropped(r))); // Review: only rows that move forward
-  state.selected = state.hovered = null;
+  const i = pin ? state.kept[LIST[pin.kind]].findIndex((e) => e.rows.includes(pin.row)) : -1;
+  state.selected = i >= 0 ? { kind: pin.kind, i } : null;
+  state.hovered = null;
   go(state.step);
 }
 
@@ -246,24 +214,24 @@ function rawRecords() {
   return state.raw.records;
 }
 
-// The mapping file's overrides with the Map step's changes on top.
+// The mapping file's overrides with the changes made in Mapping on top.
 export const overrides = () => ({ ...state.mapping?.overrides, ...state.edits });
 
 export function render() {
   renderUpload();
   renderBanner();
   renderFiles();
-  renderStepCounts();
   renderStatus();
   if (state.step === 'results') return renderResults();
-  if (!state.result) return;
-  ({ map: renderMap, standardize: renderStandardize, validate: renderValidate, review: renderReview, export: renderExport })[state.step]?.();
+  if (!state.result || state.step !== 'review') return;
+  renderReview();
+  if ($('map-dialog').open) renderMap();
 }
 
 // A one-line notice above the view when the sheet likely needs a transform (several addresses per
 // row, …). Detection only: the Transform step isn't built yet.
 function renderBanner() {
-  const hints = (state.step !== 'results' && state.result?.transforms) || [];
+  const hints = (state.step === 'review' && state.result?.transforms) || [];
   const banner = $('transform-banner');
   banner.hidden = !hints.length;
   if (!hints.length) return;
@@ -279,13 +247,6 @@ export const checkedWith = () => ['nppes', 'census'].filter((k) => state.sources
 const two = (n) => String(n).padStart(2, '0');
 export const timestamp = (d = new Date()) => `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
 
-function setMode(mode) {
-  state.mode = mode;
-  try { localStorage.setItem(MODE_KEY, mode); } catch { /* not remembered */ }
-  $('mode').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
-}
-setMode(state.mode);
-$('mode').onclick = (e) => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); };
 
 // Files and folders dropped: a folder's own files, not its subfolders'. Entries must be taken before any await.
 async function droppedFiles(dt) {
@@ -305,7 +266,7 @@ async function droppedFiles(dt) {
   return files;
 }
 
-// New files replace the old ones. Run runs them all; Step by step opens the first at Upload.
+// New files replace the old ones, and run.
 function addFiles(list) {
   const files = list.filter((f) => isRoster(f.name)).sort((a, b) => a.name.localeCompare(b.name));
   if (!files.length) {
@@ -313,24 +274,21 @@ function addFiles(list) {
     return;
   }
   state.files = files.map((f) => ({ name: f.name, read: async () => readWorkbook(await f.arrayBuffer()), status: 'waiting' }));
-  if (state.mode === 'steps') return openFile(0, undefined, 'upload');
   runFiles();
 }
 
-// No file open in the steps (Results shows them all; Upload starts a new run).
+// No file open (Results shows them all; New run starts another).
 function closeFile() {
   Object.assign(state, { result: null, rows: [], name: '', sheet: '', current: -1 });
-  $('raw-wrap').hidden = true;
-  $('sheets').hidden = true;
-  $('drop').classList.remove('loaded');
-  $('private-note').hidden = false;
+  for (const d of ['map-dialog', 'raw-dialog']) $(d).close();
   $('drop-title').textContent = 'Drop roster files or a folder';
   $('drop-hint').textContent = 'or click to browse · xlsx, xls, csv';
   document.title = 'Roster Mapper';
 }
 
-// Open one of the files in the steps, at a sheet: at Map from Results, at Upload in Step by step.
-export async function openFile(i, sheet, step = 'map') {
+// Open one of the files at Review, at a sheet (default: its first), as it was left.
+export async function openFile(i, sheet, headerRow) {
+  remember();
   const f = state.files[i];
   let sheets;
   try { sheets = await f.read(); } catch (e) {
@@ -341,8 +299,8 @@ export async function openFile(i, sheet, step = 'map') {
     return go('upload');
   }
   state.current = i;
-  state.step = step;
-  loadSheets(f.name, sheets, sheet);
+  state.step = 'review';
+  loadSheets(f.name, sheets, sheet, headerRow);
 }
 
 // Every step on every file, one file at a time, as the CLI's run does (runSheets: lookups 4 at a time,
@@ -350,6 +308,7 @@ export async function openFile(i, sheet, step = 'map') {
 export async function runFiles() {
   const token = (state.runToken = {});
   for (const f of state.files) Object.assign(f, { status: 'waiting', results: undefined, error: undefined });
+  sheetMemo.clear(); // a new run starts every sheet afresh
   closeFile();
   go('results');
   for (const f of state.files) {
@@ -358,7 +317,7 @@ export async function runFiles() {
     render();
     try {
       const results = (await runSheets(f.name, await f.read(), {
-        overrides: state.mapping?.overrides ?? {}, constants: { ...state.inputs },
+        overrides: state.mapping?.overrides ?? {}, constants: { ...state.inputs }, allowed: allowedOption(),
         ...(state.effectiveDate && { effectiveDate: state.effectiveDate }), ...(state.action && { action: state.action }), ...(state.category && { category: state.category }),
         sources: state.sources, lookup: LOOKUP, lookups: state.lookups,
         progress: (done, total) => state.runToken === token && status(`${f.name}: checking ${done} of ${total}…`),

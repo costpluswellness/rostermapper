@@ -5,7 +5,7 @@ import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { isDropped, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
+import { automap, isDropped, nppesProviderChecks, reportTables, runSheets, STEPS, StoppedEarly, type CensusMatch, type LookupFns, type NppesRecord, type StepEvent } from '../src/index';
 import { readWorkbook } from '../src/workbook';
 import { mapFiles } from '../src/node';
 import { main, type Io } from '../src/cli/cli';
@@ -65,6 +65,17 @@ test('validate: lookups drop unknown NPIs and apply trusted fixes', async () => 
 	assert.equal(r!.records[0]!.values['billing.legal_name'], 'Example Family Clinic PLLC'); // NPPES's legal name, applied
 });
 
+test('validate: a blank taxonomy is filled with NPPES\'s primary; a roster\'s taxonomy is kept', () => {
+	const record: NppesRecord = { number: '1999990009', enumeration_type: 'NPI-1', basic: { status: 'A', first_name: 'JANE', last_name: 'DOE' },
+		taxonomies: [{ code: '207R00000X', desc: 'Internal Medicine' }, { code: '207Q00000X', desc: 'Family Medicine', primary: true }] };
+	const values = { 'provider.npi': '1999990009', 'provider.first_name': 'Jane', 'provider.last_name': 'Doe' };
+	const blank = nppesProviderChecks(values, record).find((c) => c.field === 'provider.taxonomy_1');
+	assert.equal(blank?.suggestion, '207Q00000X');
+	assert.equal(blank?.auto, true);
+	const ours = nppesProviderChecks({ ...values, 'provider.taxonomy_1': '207R00000X' }, record).find((c) => c.field === 'provider.taxonomy_1');
+	assert.equal(ours?.status, 'ok');
+});
+
 test('steps: onStep sees every step in order, and can stop the run', async () => {
 	const seen: StepEvent['step'][] = [];
 	await runSheets('roster.csv', sheets(), { lookup: fakeLookup, onStep: (e) => void seen.push(e.step) });
@@ -78,6 +89,24 @@ test('report tables: the workbook tabs', async () => {
 	assert.deepEqual(Object.keys(tables), ['Summary', 'Mapping', 'Data', 'Issues', 'Left out']);
 	assert.equal(tables.Data.length, 1 + 4); // header + rows moved forward
 	assert.equal(tables['Left out'].length, 1 + 3);
+});
+
+test('standardize: allowed values are kept as written, for fields with a fixed list only', () => {
+	const rows = [['Provider Type', 'Individual NPI'], ['AHP', '123'], ['phys', '123'], ['Wizard', '123']];
+	const issues = (allowed?: Record<string, string[]>) => automap(rows, { allowed }).records.map((r) => r.issues.filter((i) => i.kind === 'format').map((i) => i.field).sort());
+	assert.deepEqual(issues(), [['network.provider_type', 'provider.npi'], ['network.provider_type', 'provider.npi'], ['network.provider_type', 'provider.npi']]);
+	// Case-insensitive; a value not listed is still flagged; an NPI can't be allowed.
+	const allowed = { 'network.provider_type': ['AHP', 'PHYS'], 'provider.npi': ['123'] };
+	assert.deepEqual(issues(allowed), [['provider.npi'], ['provider.npi'], ['network.provider_type', 'provider.npi']]);
+	assert.equal(automap(rows, { allowed }).records[0]!.values['network.provider_type'], 'AHP');
+});
+
+test('CLI: --allow takes a field with a fixed list', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'rm-'));
+	assert.equal(await main([FIXTURE, '--allow', 'provider_type=AHP,PHYS', '--no-nppes', '--no-census', '-o', dir + '/'], quiet()), 0);
+	const io = quiet();
+	assert.equal(await main([FIXTURE, '--allow', 'npi=123', '-o', dir + '/'], io), 1);
+	assert.match(io.text(), /--allow must be field=value,value for a field with a fixed list: .*provider_type/);
 });
 
 test('CLI: writes a workbook per sheet to the output folder', async () => {

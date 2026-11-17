@@ -35,6 +35,10 @@ export interface AutomapOptions extends ProfileOptions {
 	/** A default for network.effective_date (YYYY-MM-DD), for rows where it's blank. Never replaces a
 	 *  sender's value or a constant; each filled row gets a `default` note. */
 	effectiveDate?: string | undefined;
+	/** Field id → values kept as written instead of flagged, for fields with a fixed list of values
+	 *  (`enum`): a sender's own codes, like `{ 'network.provider_type': ['AHP', 'PHYS'] }`. Case-insensitive.
+	 *  Other fields (NPIs, dates, …) are always flagged when they can't be cleaned. */
+	allowed?: Readonly<Record<string, readonly string[]>> | undefined;
 }
 
 export type Column = ColumnProfile & Omit<ColumnMatch, 'index'>;
@@ -65,7 +69,7 @@ export interface AutomapResult {
 
 /** Profile a sheet, map its columns to schema fields, detect its action, and build its records. */
 export function automap(rows: readonly Row[], options: AutomapOptions = {}): AutomapResult {
-	const { schema = defaultSchema, action, fileName, sheetName, category, clean = true, overrides = {}, unmapped = [], constants = {}, effectiveDate, ...profileOptions } = options;
+	const { schema = defaultSchema, action, fileName, sheetName, category, clean = true, overrides = {}, unmapped = [], constants = {}, effectiveDate, allowed, ...profileOptions } = options;
 	const sheet = profile(redactSsn(rows).rows, profileOptions); // a no-op for rows from readWorkbook
 	const { columns, mapping } = match(sheet, schema, overrides, new Set(unmapped));
 	const norms = new Set(sheet.columns.map((c) => c.norm));
@@ -89,7 +93,7 @@ export function automap(rows: readonly Row[], options: AutomapOptions = {}): Aut
 		columns: merged,
 		mapping,
 		missing: missingFields(schema, mapping, detected.rows).filter((m) => !constants[m.field]?.trim() && !(m.field === EFFECTIVE_DATE && effectiveDate?.trim())),
-		records: buildRecords(schema, sheet.body, mapping, detected.rows, { clean, file, constants, effectiveDate }),
+		records: buildRecords(schema, sheet.body, mapping, detected.rows, { clean, file, constants, effectiveDate, allowed }),
 		unusedOverrides: Object.keys(overrides).filter((h) => !norms.has(normalizeHeader(h).norm)),
 		suggestions: suggest(merged, mapping, wanted),
 		transforms: detectTransforms(sheet.columns, sheet.body),

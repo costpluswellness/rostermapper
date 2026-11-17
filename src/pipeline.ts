@@ -49,7 +49,7 @@ export type StepEvent =
 /** Resolves to false to stop the run after this step. */
 export type OnStep = (event: StepEvent) => void | boolean | Promise<void | boolean>;
 
-export interface RunOptions extends Pick<AutomapOptions, 'action' | 'category' | 'headerRow' | 'overrides' | 'constants' | 'effectiveDate' | 'schema'> {
+export interface RunOptions extends Pick<AutomapOptions, 'action' | 'category' | 'headerRow' | 'overrides' | 'constants' | 'effectiveDate' | 'allowed' | 'schema'> {
 	/** Which lookups may send data out. Default: both, when `lookup` is given. */
 	sources?: Sources | undefined;
 	/** Where Validate's answers come from. Without it, Validate runs no lookups. */

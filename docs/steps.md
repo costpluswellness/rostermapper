@@ -12,21 +12,21 @@ Every roster goes through the same six steps, from the command line and from the
 | [5. Review](#5-review) | `src/review/` | Groups rows into providers, practice locations and billing entities |
 | [6. Export](#6-export) | `src/export/` | Writes a workbook per sheet: Summary, Mapping, Data, Issues and Left out |
 
-To see what each step did to a roster, run it one step at a time: `rostermapper roster.xlsx --steps` prints each step's result and waits for Enter between steps. In the UI, choose **Step by step**. See [Usage](usage.md).
+To see what each step did to a roster, run it one step at a time: `rostermapper roster.xlsx --steps` prints each step's result and waits for Enter between steps. See [Usage](usage.md).
 
 ## 1. Read
 
 - Reads xlsx, xls or csv, every sheet. In the UI, files are read in the browser.
 - SSN columns (headed SSN, SS#, Social Security Number, TIN/SSN, …) are removed whole, and any SSN-shaped value (`123-45-6789`) is replaced, as the file is read. They're never shown, kept or exported.
 - A password-protected file says so: remove the password in Excel and load it again.
-- In the UI, pick a sheet if the file has several; from the command line, `--sheet`, or it asks (every sheet when no one is at the terminal).
+- In the UI, every sheet runs and a file's sheets are tabs on its Review; from the command line, `--sheet`, or it asks (every sheet when no one is at the terminal).
 
 Options that apply to the whole run (UI: **New run**; CLI: flags):
 
 - **Action** (`ADD`, `UPDATE` or `TERM`). Otherwise detected, per row: an action column, then the sheet name, then the file name, else `ADD`.
 - **Default effective date**: for rows whose effective date is blank. Each filled row gets a note.
 - **Contract ID** and **sender email**: written into every record.
-- **Mapping file**: a CSV of `column,field` lines that override matching for specific headers, so a sender's quirks are fixed once and reused. `ignore` skips a column. The UI's Map step can save one ("Download mapping file").
+- **Mapping file**: a CSV of `column,field` lines that override matching for specific headers, so a sender's quirks are fixed once and reused. `ignore` skips a column. The UI's Mapping dialog can save one ("Download mapping file").
   ```
   column,field
   USE DATE,network.effective_date
@@ -49,7 +49,7 @@ Planned: a decision model runs through a series of questions to determine what t
 - **Normalize headers**: lower case, no underscores: `PROV_FIRST_NM` becomes `prov first nm`. Apply the vocabulary in `schema/vocab.yaml` (abbreviations, stopwords).
 - **Detect value types**: profile each column's values as NPI, TIN, date, phone, ZIP, state and so on, from digit checks and patterns.
 - **Match to fields**: compare each header with every field's aliases in `schema/fields.yaml` and give each field its best-scoring column. See [Canonical fields](canonical_fields.md) and the rules at the top of `src/map/match/index.ts`.
-- **Apply overrides**: a mapping file, or a change made on the UI's Map step, wins over the score.
+- **Apply overrides**: a mapping file, or a change made in the UI's Mapping, wins over the score.
 - **Suggest**: columns no field took that probably fit a field nothing mapped, from a weaker header match or distinctive values (NPIs, DEAs, tax IDs). The UI offers them as one-click pills; the CLI shows `maybe <field>`.
 - **Action and category**: the action per row (see Read) and whether the sheet lists `individual` providers or `facility` rows (`--category`, else the sheet or file name, else the columns).
 
@@ -69,7 +69,7 @@ Each value is put in its field's format:
 - Values that can be told wrong on their own are flagged: an NPI that fails its check digit, a tax ID prefix the IRS doesn't assign, a taxonomy code not in the [NUCC](https://www.nucc.org/) list (v26.1; `pnpm nucc` refreshes it)
 - Anything that can't be cleaned is kept as written and flagged
 
-In the UI, ✎ on a name, address or flagged value fixes it by hand; "As written" shows the values before cleaning.
+In the UI, "edit" on an issue types the right value for its rows; **Raw data** shows the sheet as it is in the file.
 
 ### Rows left out
 
@@ -89,7 +89,7 @@ Only outside sources, and only the ones turned on (`--no-nppes`, `--no-census`; 
 - **NPPES** ([NPI Registry](https://npiregistry.cms.hhs.gov/)): each NPI must exist and be active; Type 1 for providers, Type 2 for billing. Names, gender, degree, taxonomy and license are compared with the record.
 - **US Census geocoder**: practice and billing addresses; city, state and ZIP compared. An address it can't find is retried with the street alone (no suite or building name) and with the 2020 address ranges. Still not found is shown but isn't an issue: many newer and commercial addresses aren't in the Census street ranges.
 
-What's applied without asking (trusted): the Census geocoder's city, state, ZIP and suite on line 2, and NPPES's legal name for a billing NPI, with entity types shortened (`Professional Limited Liability Company` → `PLLC`). A legal name sharing no word with the roster's is only suggested, with a warning. In the UI, "undo" puts the roster's value back.
+What's applied without asking (trusted): the Census geocoder's city, state, ZIP and suite on line 2, and NPPES's legal name for a billing NPI, with entity types shortened (`Professional Limited Liability Company` → `PLLC`). A legal name sharing no word with the roster's is only suggested, with a warning. A blank taxonomy is filled with the provider's primary taxonomy in NPPES; a taxonomy the roster has is kept, and NPPES's is only suggested. In the UI, "undo" puts the roster's value back.
 
 What's only suggested: NPPES's credential and taxonomy (NPPES is often slow to update them; the roster's value is kept and a difference isn't an issue), and small name, gender and license differences (a typo, a nickname). Large differences are issues: one name nothing like NPPES's, or first and last name swapped. When both names are unlike NPPES's, the NPI belongs to someone else and the row is left out. When a provider's NPI is under another last name, NPPES is searched by the roster's name; if it has the provider under another NPI, the row is left out with that NPI suggested ("Use" in the UI puts it in and keeps the row).
 
@@ -97,7 +97,7 @@ Lookups run 4 at a time, retry when rate-limited, and are kept between runs in `
 
 ## 5. Review
 
-Rows grouped into what they describe: unique providers (by NPI), practice locations (by address) and billing entities (by TIN, group NPI and address), and which provider works where and bills through whom. The UI shows them as a table of provider × location × billing combinations or as a graph, with every issue by row. `--steps` prints the counts.
+Rows grouped into what they describe: unique providers (by NPI), practice locations (by address) and billing entities (by TIN, group NPI and address), and which provider works where and bills through whom. The UI shows them as a table of provider × location × billing combinations or as a graph, with every issue once per entity and its fix. `--steps` prints the counts.
 
 ## 6. Export
 

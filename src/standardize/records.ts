@@ -60,16 +60,19 @@ export const DEFAULT_NOTE = 'effective date from Upload default';
 /**
  * Build one record per body row. `actions` holds each row's action, in the same order. `file` is
  * written into every record as the `file.*` fields. `constants` fills fields no column maps to.
- * `effectiveDate` fills a blank effective date, after the column and the constant.
+ * `effectiveDate` fills a blank effective date, after the column and the constant. `allowed` lists,
+ * per enum field, values kept as written without an issue.
  */
 export function buildRecords(
 	schema: Schema,
 	body: readonly BodyRow[],
 	mapping: Readonly<Record<string, Assignment>>,
 	actions: readonly Action[],
-	{ clean = true, file, constants = {}, effectiveDate }: { clean?: boolean | undefined; file?: FileInfo | undefined; constants?: Readonly<Record<string, string>> | undefined; effectiveDate?: string | undefined } = {},
+	{ clean = true, file, constants = {}, effectiveDate, allowed = {} }: { clean?: boolean | undefined; file?: FileInfo | undefined; constants?: Readonly<Record<string, string>> | undefined; effectiveDate?: string | undefined; allowed?: Readonly<Record<string, readonly string[]>> | undefined } = {},
 ): RosterRecord[] {
 	const fields = fieldList(schema).map(({ id, spec }) => ({ id, type: spec.type, values: spec.values ?? [], required: spec.required ?? [] }));
+	// Enum values the caller accepts as written, lowercased.
+	const ok = new Map(Object.entries(allowed).filter(([id]) => fields.some((f) => f.id === id && f.type === 'enum')).map(([id, list]) => [id, new Set(list.map((v) => v.trim().toLowerCase()))]));
 
 	return body.map(({ index, cells }, i) => {
 		const action = actions[i]!;
@@ -89,6 +92,7 @@ export function buildRecords(
 
 			if (id === 'network.action_type') value = action;
 			else if (clean && value) ({ value, issue } = cleanValue(id, type, value, kinds));
+			if (issue && ok.get(id)?.has(value.trim().toLowerCase())) issue = undefined; // kept as written
 
 			if (assigned?.inverted && value && !issue) {
 				if (YES.test(value)) value = '0';

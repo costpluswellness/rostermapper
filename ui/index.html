@@ -24,33 +24,19 @@
 
 <header class="rm-top">
   <strong class="rm-title">Roster Mapper</strong>
-  <span id="filename" class="rm-badge" hidden></span>
   <span class="rm-top-right">
-    <span class="view-switch" id="mode"><button type="button" data-mode="run" class="on" title="Run every step on every file with the recommended options, as the CLI does, and show the results. Open any file to see its steps.">Run</button><button type="button" data-mode="steps" title="Open each file at Upload and go through its steps one at a time: to see why a roster maps the way it does">Step by step</button></span>
     <button type="button" id="how" class="linkish">How it works</button>
   </span>
 </header>
 
 <div class="rm-bench">
-<!-- The rail: a new run, its results, its files and, for the file open, its steps. -->
-<nav class="rm-rail" aria-label="Files and steps">
-  <a href="#" id="rail-new" title="Files and options for a new run">New run</a>
-  <a href="#" id="rail-results" title="What the run did to every file: sheets, mapping, issues and rows left out">Results</a>
+<!-- The rail: a new run, every file's results, and the files. -->
+<nav class="rm-rail" aria-label="Files">
+  <a href="#" id="rail-new" class="rail-new" title="Files and options for a new run">+ New run</a>
+  <a href="#" id="rail-results" title="What the run did to every file: sheets, mapping, issues and rows left out">All results</a>
   <div id="rail-files" hidden>
-    <h4>Files</h4>
+    <h4>Files <span id="file-count"></span></h4>
     <ul id="file-list"></ul>
-  </div>
-  <div id="rail-steps" hidden>
-    <h4>Steps</h4>
-    <ol id="steps" class="rm-steps">
-      <li><a href="#" data-step="upload">Upload <small data-count="upload"></small></a></li>
-      <li class="soon"><a aria-disabled="true" title="Not built yet">Transform <span class="rm-soon">soon</span></a></li>
-      <li><a href="#" data-step="map">Map <small data-count="map"></small></a></li>
-      <li><a href="#" data-step="standardize">Standardize <small data-count="standardize"></small></a></li>
-      <li><a href="#" data-step="validate">Validate <small data-count="validate"></small></a></li>
-      <li><a href="#" data-step="review">Review <small data-count="review"></small></a></li>
-      <li><a href="#" data-step="export">Export <small data-count="export"></small></a></li>
-    </ol>
   </div>
 </nav>
 
@@ -67,7 +53,6 @@
         <span id="drop-hint" class="muted">or click to browse · xlsx, xls, csv</span>
       </label>
       <p class="hint center"><span id="private-note">Read in this browser. Nothing is stored, SSNs are never read. · </span><label class="textlink">Open a folder<input type="file" id="folder" webkitdirectory hidden></label></p>
-      <div id="sheets" class="sheets" hidden></div>
 
       <fieldset class="sources">
         <legend>External sources</legend>
@@ -110,10 +95,6 @@
     </div>
   </div>
 
-  <div id="raw-wrap" hidden>
-    <p class="rm-caption"><span id="hdr-caption"></span> <button type="button" id="hdr-reset" class="textlink" hidden>Use detected row</button></p>
-    <div class="scroll short"><table id="raw"></table></div>
-  </div>
 </section>
 
 <section class="step" id="step-results" hidden>
@@ -125,43 +106,35 @@
   <div class="scroll tall"><table id="results" class="results"></table></div>
 </section>
 
-<section class="step" id="step-map" hidden>
-  <div id="mapped" class="fieldsets"></div>
-  <details class="unmapped">
-    <summary id="unmapped-title">Columns not mapped</summary>
-    <div id="unmapped" class="colgroups"></div>
-  </details>
-</section>
-
-<section class="step" id="step-standardize" hidden>
-  <p class="view-switch"><button data-view="clean" class="on">Cleaned</button><button data-view="raw">As written</button></p>
-  <div id="standardized"></div>
-</section>
-
-<section class="step" id="step-validate" hidden>
-  <p class="validate-bar"><button id="run-checks" class="primary">Run checks</button> <span id="check-note" class="muted"></span> <span id="sources-off"></span> <span id="bulk"></span> <label class="muted small"><input type="checkbox" id="only-problems"> show only problems</label></p>
-  <div id="validated"></div>
-</section>
-
 <section class="step" id="step-review" hidden>
-  <p class="view-switch" id="review-view"><button data-review="table" class="on">Table</button><button data-review="graph">Graph</button></p>
-  <div class="scroll tall" id="chains-wrap"><table id="chains" class="chains"></table></div>
-  <div class="graph" id="graph" hidden>
+  <!-- The file: its name and totals (sheets not ignored), its actions, Download. -->
+  <header class="file-head">
+    <div><h2 id="file-title"></h2><p id="file-totals" class="muted small"></p></div>
+    <span class="file-actions">
+      <button type="button" id="open-map" class="textlink" title="See and change which column fills each field">Mapping</button>
+      <button type="button" id="open-raw" class="textlink" title="The sheet as it is in the file; pick the header row here">Raw data</button>
+      <button type="button" id="run-checks" class="textlink" title="Look up NPIs in NPPES and addresses with the US Census geocoder again">Run checks</button>
+      <button type="button" id="download" class="primary" title="One workbook: Summary, Mapping, Data, Issues and Left out, for every sheet not ignored">Download</button>
+    </span>
+  </header>
+  <!-- The file's sheets: click one to open it; × ignores it (left out of Results and the download), ↺ brings it back. -->
+  <nav class="tabs sheet-tabs" id="sheet-tabs" aria-label="Sheets" hidden></nav>
+  <!-- The open sheet's figures, what the checks looked up, and Graph | Table. -->
+  <div class="sheet-bar">
+    <dl class="stats" id="sheet-stats"></dl>
+    <span id="check-note" class="muted small"></span> <span id="sources-off" class="small"></span>
+    <span class="view-switch" id="review-view"><button data-review="graph" class="on">Graph</button><button data-review="table">Table</button></span>
+  </div>
+  <div class="scroll tall" id="chains-wrap" hidden><table id="chains" class="chains"></table></div>
+  <div class="graph" id="graph">
     <svg id="links" aria-hidden="true"></svg>
     <section class="entities provider"><h4>Providers <span id="count-provider"></span></h4><ul id="list-provider"></ul></section>
     <section class="entities practice"><h4>Practice locations <span id="count-practice"></span></h4><ul id="list-practice"></ul></section>
     <section class="entities billing"><h4>Billing <span id="count-billing"></span></h4><ul id="list-billing"></ul></section>
   </div>
-  <h3>Issues</h3>
+  <h3 class="issues-head">Issues <span id="issue-count" class="muted normal"></span> <span id="bulk"></span></h3>
+  <p id="allowed" class="small" hidden></p>
   <div class="scroll short tall"><table id="issues"></table></div>
-</section>
-
-<section class="step" id="step-export" hidden>
-  <p id="export-summary"></p>
-  <p><button id="export-xlsx" class="primary" title="Summary, Mapping, Data, Issues and Left out, in tabs">Download workbook</button> <button id="export-csv">Download CSV</button> <button id="export-json">Download JSON</button>
-    <button id="export-issues" title="Every row left out of the CSV, with the reason, and its values to fix and send again">Download issues</button></p>
-  <div class="scroll tall"><table id="export-preview" class="preview"></table></div>
-  <p id="export-more" class="muted"></p>
 </section>
 
 </div>
@@ -170,26 +143,47 @@
 <!-- The status bar: progress, counts for the sheet open, and the way through its steps. -->
 <footer class="rm-status">
   <span id="status" class="muted" aria-live="polite"></span>
-  <span class="nav-right" id="step-nav" hidden>
-    <span id="map-links" hidden>
-      <span id="edits-note" class="muted"></span>
-      <button type="button" id="clear-edits" class="textlink" hidden>Undo changes</button>
-      <button type="button" id="download-mapping" class="textlink">Download mapping file</button>
-    </span>
-    <button type="button" id="back">← Back</button>
-    <button type="button" id="run-all" title="Run the remaining steps with the recommended options (lookups, trusted fixes) and go to Export">Run all steps</button>
-    <button type="button" id="next" class="primary">Next →</button>
-  </span>
 </footer>
+
+<!-- Mapping: which column fills each field, changed here; the page behind recalculates as you go. -->
+<dialog id="map-dialog" class="rm-dialog" aria-labelledby="map-title">
+  <header class="dialog-bar"><b id="map-title">Mapping</b>
+    <span id="edits-note" class="muted small"></span>
+    <button type="button" id="clear-edits" class="textlink" hidden>Undo changes</button>
+    <button type="button" id="download-mapping" class="textlink">Download mapping file</button>
+    <form method="dialog" class="nav-right"><button>Done</button></form></header>
+  <div id="mapped" class="fieldsets"></div>
+  <details class="unmapped">
+    <summary id="unmapped-title">Columns not mapped</summary>
+    <div id="unmapped" class="colgroups"></div>
+  </details>
+</dialog>
+
+<!-- Raw data: the sheet as it is in the file. Click a row to make it the header row. -->
+<dialog id="raw-dialog" class="rm-dialog" aria-labelledby="raw-title">
+  <header class="dialog-bar"><b id="raw-title">Raw data</b>
+    <span id="hdr-caption" class="muted small"></span> <button type="button" id="hdr-reset" class="textlink" hidden>Use detected row</button>
+    <form method="dialog" class="nav-right"><button>Close</button></form></header>
+  <div id="raw-wrap" class="scroll"><table id="raw"></table></div>
+</dialog>
+
+<!-- Download: the workbook's sheets (untick one to leave it out) and its first rows, to confirm. -->
+<dialog id="download-dialog" class="rm-dialog" aria-labelledby="download-title">
+  <header class="dialog-bar"><b id="download-title">Download</b> <span id="download-name" class="muted small"></span>
+    <form method="dialog" class="nav-right"><button>Cancel</button></form></header>
+  <div class="scroll"><table id="download-sheets"></table></div>
+  <h4>Data <span id="download-count" class="muted normal"></span></h4>
+  <div class="scroll"><table id="download-preview"></table></div>
+  <p class="dialog-foot"><span id="download-note" class="muted small"></span><button type="button" id="download-confirm" class="primary">Download</button></p>
+</dialog>
 
 <!-- How it works: one dialog for every step; the current step's section is marked. -->
 <dialog id="how-dialog">
   <h2>How Roster Mapper works</h2>
   <section data-how="upload"><h3>1 · Upload</h3><ul>
     <li>Drop xlsx, xls or csv files, or a folder of them. They're read in this browser; SSNs are removed as they're read.</li>
-    <li><b>Run</b> (the default) runs every step on every file with the recommended options, as the command line does, and shows Results. Click a file to go through its steps.</li>
-    <li><b>Step by step</b> opens each file at this step instead, to see each step's result. "Run all steps" finishes a file from wherever you are.</li>
-    <li>The header row is found automatically. Click another row in the preview to change it.</li>
+    <li>Every file is mapped, standardized and checked as the command line does, and Results shows what happened. Click a file to review it.</li>
+    <li>The header row is found automatically. To change it, open <b>Raw data</b> on a file and click another row.</li>
     <li>The action (ADD, UPDATE or TERM) comes from an action column, then the sheet name, then the file name.</li></ul></section>
   <section data-how="results"><h3>Results</h3><ul>
     <li>The same tables as the workbook the command line writes: each sheet's counts, the mapping (each column, its field and why), every issue, and every row left out and why.</li>
@@ -201,13 +195,13 @@
         <li>Extracting fields merged into another column, such as effective dates, addresses or names.</li>
         <li>Inferring fields from the file's metadata or structure, such as license state, primary location or show_in_dir.</li>
       </ul></li></ul></section>
-  <section data-how="map"><h3>2 · Map</h3><ul>
+  <section data-how="map"><h3>Mapping</h3><ul>
     <li><b>Find the header row:</b> scan the first 30 rows and pick the one that looks most like labels, with data below it.</li>
     <li><b>Normalize headers:</b> lowercase them and remove underscores, so <code>PROV_FIRST_NM</code> → <code>prov first nm</code>, then apply any vocabulary transformations.</li>
     <li><b>Detect value types:</b> profile each column's values (digit checks and patterns) as NPI, TIN, date, phone, ZIP, state and so on.</li>
     <li><b>Match to fields:</b> compare each column's name with every field's aliases in <code>schema/fields.yaml</code> and give each field its best-scoring column. See the <a href="https://github.com/costpluswellness/rostermapper/blob/main/docs/canonical_fields.md" target="_blank" rel="noopener">data dictionary</a>.</li>
-    <li>Click another column to change a field, or set one value for every row. Save your choices as a mapping file for the next roster from this sender.</li></ul></section>
-  <section data-how="standardize"><h3>3 · Standardize</h3><ul>
+    <li>Open <b>Mapping</b> on a file to click another column for a field, or set one value for every row. Save your choices as a mapping file for the next roster from this sender.</li></ul></section>
+  <section data-how="standardize"><h3>Standardizing</h3><ul>
     <li>Transform column values to standard formats:
       <ul>
         <li>Dates → <code>YYYY-MM-DD</code></li>
@@ -223,17 +217,19 @@
       </ul></li>
     <li>Values that can be told wrong on their own are flagged: an NPI that fails its check digit, a tax ID prefix the IRS doesn't assign, a taxonomy code not in the NUCC list.</li>
     <li>Values that can't be cleaned are kept as written and flagged.</li>
-    <li>Hover a name, address or flagged value and click ✎ to fix it by hand.</li></ul></section>
-  <section data-how="validate"><h3>4 · Validate</h3><ul>
-    <li>Compares the roster with outside sources, as turned on under Upload: NPIs are looked up in NPPES and addresses in the Census geocoder.</li>
-    <li>Census results are applied by default: city, state and ZIP, and a suite or building name moved to line 2. So is NPPES's legal name for a billing NPI. Open "changes from …" on a card to see them; "undo" puts yours back.</li>
+    <li>Click "edit" on an issue to type the right value for its rows.</li></ul></section>
+  <section data-how="validate"><h3>Checks</h3><ul>
+    <li>Compares the roster with outside sources, as turned on under New run: NPIs are looked up in NPPES and addresses in the Census geocoder. <b>Run checks</b> on a file looks them up again.</li>
+    <li>Census results are applied by default: city, state and ZIP, and a suite or building name moved to line 2. So are NPPES's legal name for a billing NPI and, when the roster has none, the provider's primary taxonomy. Open "changes from …" on a card to see them; "undo" puts yours back.</li>
     <li>Other NPPES results are suggestions: accept one with "Use"; "undo" puts yours back.</li>
     <li>A provider NPI that NPPES lists under someone else drops the row. When NPPES has the provider under another NPI, "Use" puts it in and keeps the row.</li></ul></section>
-  <section data-how="review"><h3>5 · Review</h3><ul>
-    <li>Visualize relationships by entity: which unique NPIs, tax IDs, billing entities and network records are being entered.</li>
-    <li>See which providers work at which locations and bill through which entities, and every issue by row.</li></ul></section>
-  <section data-how="export"><h3>6 · Export</h3><ul>
-    <li>Download a workbook (Summary, Mapping, Data, Issues and Left out tabs), or the records as CSV or JSON.</li></ul></section>
+  <section data-how="review"><h3>Review</h3><ul>
+    <li>A file opens here, and everything about it happens here. At the top: its totals (sheets not ignored), Mapping, Raw data, Run checks and Download, then the open sheet's figures. Its sheets are tabs: click one to open it; × ignores one (a data dictionary, a notes tab), leaving it out of Results and the download; ↺ brings it back.</li>
+    <li>The graph shows which providers work at which locations and bill through which entities; the table lists each combination with its rows.</li>
+    <li>Each card carries the checks: values are taken as confirmed unless marked: ⚠ a suggestion ("Use" accepts it), ✕ a failure, green a value the roster didn't have, filled in from NPPES or Census (hover to see which). Click an NPI to open it in the NPPES NPI Registry.</li>
+    <li>Click a card to pin it and see its problems: "add" types a missing value, "edit address" opens every part of a practice or billing address to fix together (the new address is looked up again).</li>
+    <li>Issues show once per provider, location or billing entity (click its name to see its card), each with its fix: "mapping" opens the field in Mapping, "edit" types the right value, "Use" applies a source's value to every row of the entity, "Allow" keeps a sender's own code (such as AHP) as written, in this file and the next, until you remove it under Issues.</li>
+    <li><b>Download</b> shows what the workbook will hold first: each sheet with its counts (untick one to leave it out) and the first rows. Confirm to save one workbook with every sheet kept: Summary, Mapping, Data, Issues and Left out.</li></ul></section>
   <form method="dialog"><button>Close</button></form>
 </dialog>
 
