@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- UI: values changed on their own from NPPES or Census (a legal name, a city) are green on the cards like values filled in, so every automatic change can be reviewed; suggestions waiting for "Use" stay orange
 - A blank billing legal name is filled from NPPES when the billing NPI is an active organization NPI, applied like NPPES legal names (undo it in the UI; shown in green as filled from NPPES)
 - UI: New run is the drop, with the action, a mapping file and the lookups under it; contract ID and sender email are asked for at Download (Review's dialog, Results' Download all); dark by default, with a switch to light
 - A blank taxonomy is filled with the provider's primary taxonomy from NPPES, applied like NPPES legal names and Census addresses (undo it in the UI)
