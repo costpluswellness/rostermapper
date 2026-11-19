@@ -157,7 +157,9 @@
       <label><span>Contract ID</span> <input type="text" data-input="network.contract_id" placeholder="optional" aria-label="Contract ID, written into every row" title="Written into every row of the download" autocomplete="off" spellcheck="false"></label>
       <label><span>Sender email</span> <input type="email" data-input="network.sender_email" placeholder="optional" aria-label="Sender email, written into every row" title="Who sent the roster; written into every row of the download" autocomplete="off" spellcheck="false"></label>
     </span>
-    <button type="button" id="download-confirm" class="primary">Download</button></p>
+    <button type="button" id="download-confirm" class="primary">Download</button>
+    <button type="button" id="send-confirm" class="primary" hidden></button></p>
+  <p id="send-note" class="small" hidden></p>
 </dialog>
 
 <!-- How it works: one dialog for every step; the current step's section is marked. -->

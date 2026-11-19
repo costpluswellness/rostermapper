@@ -286,6 +286,9 @@ details.unmapped summary { cursor: pointer; color: var(--muted); margin-bottom: 
 #download-dialog td.num, #download-dialog th.num { text-align: right; font-variant-numeric: tabular-nums; }
 #download-dialog tr.off td { color: var(--muted); text-decoration: line-through; }
 #download-dialog tr.off td:first-child { text-decoration: none; }
+#send-confirm { white-space: nowrap; }
+#send-note { margin: 6px 0 0; text-align: right; }
+#send-note.bad { color: var(--bad); }
 .dialog-foot { position: sticky; bottom: -1.25rem; display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin: 14px 0 0; padding: 10px 0 1.25rem; background: var(--bg); border-top: 1px solid var(--rule); }
 .addr-grid { display: grid; grid-template-columns: 1fr 4em 6em; gap: 4px 6px; margin-bottom: 6px; }
 .addr-grid label { display: grid; gap: 1px; }

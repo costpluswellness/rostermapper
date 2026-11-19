@@ -75,6 +75,9 @@ Options
       --why              print the mapping and the reasons behind it
       --json             print the full result (mapping and records) as JSON
       --ui               open the UI in the browser instead
+      --send <url>       with --ui: a "Send" button next to Download that POSTs
+                         the result (every sheet's records, mapping and counts)
+                         as JSON to this URL, with the page's query string
   -v, --version          print the version
   -h, --help             print this help
 
@@ -120,6 +123,7 @@ const defaultIo = (): Io => ({
 
 const OPTIONS = {
 	ui: { type: 'boolean' },
+	send: { type: 'string' },
 	'no-ui': { type: 'boolean' }, // the default now; still accepted
 	sheet: { type: 'string', short: 's' },
 	mapping: { type: 'string', short: 'm' },
@@ -176,7 +180,7 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
 	if (!settings) return 1;
 	if (!positionals.length) {
 		if (!io.openUi || !(opts.ui || io.terminal)) return print(err, HELP.trimEnd(), 1);
-		return startUi(io, { ...lookups(opts), ...(settings.effectiveDate && { effectiveDate: settings.effectiveDate }), ...withInputs(settings) });
+		return startUi(io, { ...lookups(opts), ...(settings.effectiveDate && { effectiveDate: settings.effectiveDate }), ...withInputs(settings) }, {}, opts.send);
 	}
 	if (positionals.length > 1 || isDirectory(positionals[0]!)) return bulk(positionals, opts, settings, io);
 	return single(positionals[0]!, opts, settings, io);
@@ -276,7 +280,7 @@ async function single(file: string, opts: Flags, settings: Settings, io: Io): Pr
 			name: basename(file), mappingName: settings.mapping?.name, sheet: opts.sheet, headerRow: settings.headerRow, action: settings.action, category: settings.category,
 			effectiveDate: settings.effectiveDate, ...withInputs(settings), ...lookups(opts),
 		};
-		return startUi({ ...io, openUi: ui }, session, { sheets: everySheet, mapping: settings.mapping?.bytes });
+		return startUi({ ...io, openUi: ui }, session, { sheets: everySheet, mapping: settings.mapping?.bytes }, opts.send);
 	}
 
 	if (opts.sheet === undefined && sheets.length > 1 && io.chooseSheet) {
@@ -378,7 +382,14 @@ function lookupLine(opts: Flags, before: { asked: number; saved: number }, io: I
 	io.err.write(`Lookups: ${asked} asked of NPPES and Census, ${saved} reused` + (!diskCacheOn() ? ' (--no-cache)\n' : ` from ${cacheFile().replace(homedir(), '~')}\n`));
 }
 
-async function startUi({ err, openUi }: Io, session: Session, files: UiFiles = {}): Promise<number> {
+async function startUi({ err, openUi }: Io, session: Session, files: UiFiles = {}, sendTo?: string): Promise<number> {
+	if (sendTo !== undefined) {
+		let to: URL | undefined;
+		try { to = new URL(sendTo); } catch { /* checked below */ }
+		if (!to || !/^https?:$/.test(to.protocol)) return print(err, `--send needs an http or https URL, not "${sendTo}"`, 1);
+		session = { ...session, send: { label: `Send to ${to.host}` } };
+		files = { ...files, sendTo: to.href };
+	}
 	try {
 		const url = await openUi!(session, files);
 		err.write(`Roster Mapper → ${url}\nPress Ctrl+C to stop.\n`);

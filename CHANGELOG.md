@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Host hooks for embedding: the page passes its query string to `session`, `file` and `mapping`, so a host can say which roster to open (`index.html?attachment=…`); `file` may answer with the roster's bytes, read like an upload; `session.send = { label }` adds a button next to Download that POSTs the result (each sheet's records, left-out rows included, mapping and counts) to the host's `send` route, which answers `{ message?, open? }`. `--send <url>` does it from the command line. See docs/usage.md, Embedding the UI
 - UI: values changed on their own from NPPES or Census (a legal name, a city) are green on the cards like values filled in, so every automatic change can be reviewed; suggestions waiting for "Use" stay orange
 - A blank billing legal name is filled from NPPES when the billing NPI is an active organization NPI, applied like NPPES legal names (undo it in the UI; shown in green as filled from NPPES)
 - UI: New run is the drop, with the action, a mapping file and the lookups under it; contract ID and sender email are asked for at Download (Review's dialog, Results' Download all); dark by default, with a switch to light

@@ -3,7 +3,7 @@
 // recalculates live. Only this machine can connect; files never leave it.
 import { spawn } from 'node:child_process';
 import { createReadStream, existsSync } from 'node:fs';
-import { createServer, type ServerResponse } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +31,9 @@ export interface Session {
 	inputs?: Readonly<Record<string, string>> | undefined;
 	/** --allow: enum field id → values kept as written. */
 	allowed?: Readonly<Record<string, readonly string[]>> | undefined;
+	/** A host that takes the result itself: Download gets a second button with this label, which POSTs the
+	 *  result to the host's `send` route (see ui/steps/review.js, sendBody). The CLI never sets it. */
+	send?: { label: string } | undefined;
 }
 
 const TYPES: Record<string, string> = {
@@ -49,6 +52,8 @@ export interface UiFiles {
 	/** The roster, already read and SSN-redacted: the browser never receives the file's raw bytes. */
 	sheets?: Sheet[] | undefined;
 	mapping?: Uint8Array | undefined;
+	/** --send: where the page's Send button's POST goes (with the page's query string). */
+	sendTo?: string | undefined;
 }
 
 // JSON has no dates: send them as { $date: "…" } for the page to turn back into Dates.
@@ -71,6 +76,10 @@ export function openUi(session: Session, files: UiFiles = {}): Promise<string> {
 			// Dates are already Date objects here; JSON.stringify would call toJSON first, so convert up front.
 			const body = JSON.stringify(files.sheets.map((s) => ({ ...s, rows: s.rows.map((r) => r?.map((c) => withDates('', c))) })));
 			return void res.writeHead(200, { 'content-type': 'application/json' }).end(body);
+		}
+		if (url === '/send') {
+			if (!files.sendTo || req.method !== 'POST') return void res.writeHead(404).end();
+			return void forward(files.sendTo, full.searchParams, req, res);
 		}
 		if (url === '/mapping') {
 			return void (files.mapping ? res.writeHead(200, { 'content-type': 'application/octet-stream' }).end(files.mapping) : res.writeHead(404).end());
@@ -112,6 +121,23 @@ async function lookup(url: string, params: URLSearchParams, res: ServerResponse)
 		send(200, { result: await answer });
 	} catch (e) {
 		send(502, { error: (e as Error).message });
+	}
+}
+
+// ─── Send ──────────────────────────────────────────────────────
+// The page POSTs its result to /send; this passes it on to --send's URL, with the page's query string
+// added, and hands back the answer ({ message?, open? }). Server to server, so the target needs no CORS.
+async function forward(target: string, params: URLSearchParams, req: IncomingMessage, res: ServerResponse): Promise<void> {
+	const json = (status: number, body: string): void => void res.writeHead(status, { 'content-type': 'application/json' }).end(body);
+	try {
+		const chunks: Buffer[] = [];
+		for await (const c of req) chunks.push(c as Buffer);
+		const to = new URL(target);
+		for (const [k, v] of params) to.searchParams.set(k, v);
+		const answer = await fetch(to, { method: 'POST', headers: { 'content-type': 'application/json' }, body: Buffer.concat(chunks), signal: AbortSignal.timeout(120_000) });
+		json(answer.status, (await answer.text()) || '{}');
+	} catch (e) {
+		json(502, JSON.stringify({ error: `${new URL(target).host} didn't answer: ${(e as Error).message}` }));
 	}
 }
 

@@ -6,6 +6,7 @@ export const SOURCE_NAME = { nppes: 'NPPES', census: 'US Census geocoder' };
 
 export const state = {
   step: 'upload',
+  send: null, // { label }: the host takes the result (session.send), as Download's other button
   name: '', sheets: [], sheet: '', rows: [], headerRow: 0, autoRow: 0, action: '', category: '',
   mapping: null, // { name, overrides, errors }: the uploaded mapping file
   edits: {}, // header → field or "ignore": changes made in Mapping, applied on top of the file
