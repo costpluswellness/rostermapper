@@ -114,4 +114,27 @@ The UI in `dist/ui/` is plain HTML, CSS and ES modules, styled for embedding in 
 | `--rm-max-width` | none | The bench's width |
 | `--rm-min-height` | `100vh` | Its height, so the status bar sits at the bottom |
 
-The UI needs a server for three things browsers can't do alone: `/api/nppes`, `/api/census` and `/api/nppes-name` (NPPES and the Census geocoder have no CORS), and optionally `/session` and `/file` for a roster given on the command line. See `src/cli/server.ts`.
+The UI needs a server for three things browsers can't do alone: `/api/nppes`, `/api/census` and `/api/nppes-name` (NPPES and the Census geocoder have no CORS). See `src/cli/server.ts`.
+
+A host can also open a roster in the page and take the result back. The page fetches these relative to itself, each with the page's own query string added, so `index.html?attachment=8f2c…` tells the host which roster:
+
+| Route | Answer | What the page does |
+| --- | --- | --- |
+| `GET session` | JSON: `Session` in `src/cli/server.ts` (`name`, `sheet`, `action`, `inputs`, `send`, …), or `{}` | With `name`, opens that roster; without, starts at Upload |
+| `GET file` | The roster's bytes (xlsx, xls or csv), or the sheets already read (JSON, as the CLI sends) | Reads bytes like an upload, removing SSNs as it reads |
+| `GET mapping` | A mapping file's bytes, when `session.mappingName` is set | Applies the overrides |
+| `POST send` | JSON: `{ message?, open? }`, or an error status with `{ error }` | Shown when `session.send` is `{ label }`: a button with that label next to Download |
+
+`send` gets the open file's sheets that aren't ignored, with Contract ID and sender email written in:
+
+```json
+{ "name": "roster.xlsx", "checked": "NPPES, Census",
+  "sheets": [{ "sheet": "Adds", "headerRow": 1, "action": "ADD", "category": "individual",
+               "mapping": { "provider.npi": "NPI #", "…": "…" },
+               "counts": { "rows": 40, "movedForward": 38, "leftOut": 2, "withIssues": 5 },
+               "records": [{ "row": 2, "values": { "provider.npi": "…" }, "issues": [] }] }] }
+```
+
+`records` are every row, left-out ones included, each with the issues that dropped it (`drop: true`), so the host can account for every line the sender sent. The page shows `message`, then goes to `open` (the top window's location when it is framed).
+
+From the command line, `--send <url>` with `--ui` adds the button and passes the POST on to that URL, with the page's query string: `rostermapper --ui roster.xlsx --send "http://localhost:8768/api/mapper"`.

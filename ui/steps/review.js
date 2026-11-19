@@ -1,7 +1,7 @@
 import { $, XLSX, download, esc, plural, specOf } from '../lib.js';
 import { counts, isDropped, outputName, toReport } from '../rostermapper.js';
 import { saveAllowed, state, withInputs } from '../state.js';
-import { checkedWith, openMap, pickSheet, remember, run, sheetMemo } from '../app.js';
+import { checkedWith, host, openMap, pickSheet, remember, run, sheetMemo } from '../app.js';
 import { isIgnored, toggleIgnored } from '../results.js';
 import { editControl, entityCard, onCardClick, renderChecksBar, runChecks } from './validate.js';
 // ─── Review: a file's one page ──────────────────────────────
@@ -99,6 +99,12 @@ function renderDownload() {
   const left = kept.reduce((n, r) => n + r.records.filter(isDropped).length, 0);
   $('download-note').textContent = `Summary, Mapping, Data, Issues and Left out tabs${left ? ` · ${plural(left, 'row')} on Left out, with why` : ''}`;
   $('download-confirm').disabled = !kept.length;
+  // A host that takes the result itself (session.send) gets its button next to Download, as the main one.
+  $('send-confirm').hidden = !state.send;
+  $('send-confirm').textContent = state.send?.label ?? '';
+  $('send-confirm').disabled = !kept.length;
+  $('download-confirm').classList.toggle('primary', !state.send);
+  $('send-note').hidden = true;
 }
 $('download').onclick = () => { renderDownload(); $('download-dialog').showModal(); };
 $('download-dialog').onclick = (e) => { if (e.target === $('download-dialog')) $('download-dialog').close(); };
@@ -111,6 +117,47 @@ $('download-confirm').onclick = () => {
   if (!kept.length) return;
   download(toReport(state.name, withInputs(kept), { notes: { Checked: checkedWith() } }), XLSX, downloadName(kept));
   $('download-dialog').close();
+};
+
+// What a host gets from Send: the file, and per sheet kept what Download's workbook holds as data. Records
+// are every row, left-out ones included (each with the issues that dropped it), so the host can account for
+// every line the sender sent. The host answers { message?, open? }: open is a URL to go to next.
+export function sendBody(name, results) {
+  return {
+    name,
+    checked: checkedWith(),
+    sheets: results.map((r) => ({
+      sheet: r.sheet,
+      headerRow: r.headerRow + 1,
+      action: r.action.action,
+      category: r.category.category,
+      mapping: Object.fromEntries(Object.entries(r.mapping).map(([field, a]) => [field, r.columns.find((c) => c.index === a.column)?.header ?? ''])),
+      counts: counts(r.records),
+      records: r.records,
+    })),
+  };
+}
+$('send-confirm').onclick = async () => {
+  const kept = downloadResults().filter((s) => s.on && s.result?.records.length).map((s) => s.result);
+  if (!kept.length || !state.send) return;
+  const button = $('send-confirm');
+  const note = (text, bad) => { $('send-note').hidden = false; $('send-note').textContent = text; $('send-note').classList.toggle('bad', !!bad); };
+  button.disabled = true;
+  note('Sending…');
+  try {
+    const res = await fetch(host('send'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sendBody(state.name, withInputs(kept))) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || out.message || `${res.status} ${res.statusText}`);
+    note(out.message || 'Sent.');
+    if (out.open) {
+      // Framed by the host (the portal) the next page replaces the frame's parent; alone, this page.
+      try { (window.top ?? window).location.assign(out.open); } catch { location.assign(out.open); }
+    }
+  } catch (e) {
+    note(`Not sent: ${e.message}`, true);
+  } finally {
+    button.disabled = false;
+  }
 };
 
 

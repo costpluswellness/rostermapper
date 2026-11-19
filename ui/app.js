@@ -98,8 +98,12 @@ function renderStatus() {
 
 // ─── Loading ────────────────────────────────────────────────
 // The CLI passes the files and flags it was given; with none, the user starts at Upload.
+// The page's query string goes to every host route, so a host can say which roster to open
+// (index.html?attachment=…): the CLI has one session and ignores it.
+export const host = (route) => route + location.search;
 async function boot() {
-  const session = await (await fetch('session')).json();
+  const session = await (await fetch(host('session'))).json();
+  state.send = session.send?.label ? session.send : null;
   state.action = session.action ?? '';
   state.category = session.category ?? ''; // from --category; not shown, written into the export
   state.effectiveDate = session.effectiveDate ?? '';
@@ -110,11 +114,14 @@ async function boot() {
   for (const [f, list] of Object.entries(session.allowed ?? {})) for (const v of list) (state.allowed.get(f) ?? state.allowed.set(f, new Set()).get(f)).add(v);
   // --no-nppes / --no-census win for this session; the boxes still change them (and save).
   for (const kind of ['nppes', 'census']) if (session[kind] === false) { state.sources[kind] = false; $(`use-${kind}`).checked = false; }
-  if (session.mappingName) loadMapping(session.mappingName, await (await fetch('mapping')).arrayBuffer());
+  if (session.mappingName) loadMapping(session.mappingName, await (await fetch(host('mapping'))).arrayBuffer());
   if (!session.name) return go('upload');
-  // The CLI sends the roster already read and SSN-redacted, never the raw file.
+  // The CLI sends the roster already read and SSN-redacted (JSON), never the raw file. Another host
+  // may send the file's bytes instead (xlsx, xls or csv): read here like an upload, SSNs removed as read.
   const revive = (_, v) => (v && typeof v === 'object' && '$date' in v ? new Date(v.$date) : v);
-  const sheets = JSON.parse(await (await fetch('file')).text(), revive);
+  const res = await fetch(host('file'));
+  if (!res.ok) throw new Error(`the roster (${res.status})`);
+  const sheets = /json/.test(res.headers.get('content-type') ?? '') ? JSON.parse(await res.text(), revive) : readWorkbook(await res.arrayBuffer());
   state.files = [{ name: session.name, read: async () => sheets, status: 'waiting' }];
   // One file from the command line: run it, then open it.
   await runFiles();
