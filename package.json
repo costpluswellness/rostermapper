@@ -1,6 +1,6 @@
 {
 	"name": "rostermapper",
-	"version": "1.0.0-beta",
+	"version": "1.0.0-beta.1",
 	"description": "Map any healthcare provider roster file (xlsx, xls, csv) to a standard schema: map, standardize, validate against NPPES and the Census geocoder, and export.",
 	"keywords": [
 		"healthcare",
