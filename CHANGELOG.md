@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0-beta.1
 
 - Host hooks for embedding: the page passes its query string to `session`, `file` and `mapping`, so a host can say which roster to open (`index.html?attachment=…`); `file` may answer with the roster's bytes, read like an upload; `session.send = { label }` adds a button next to Download that POSTs the result (each sheet's records, left-out rows included, mapping and counts) to the host's `send` route, which answers `{ message?, open? }`. `--send <url>` does it from the command line. See docs/usage.md, Embedding the UI
 - UI: values changed on their own from NPPES or Census (a legal name, a city) are green on the cards like values filled in, so every automatic change can be reviewed; suggestions waiting for "Use" stay orange
