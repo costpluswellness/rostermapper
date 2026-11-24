@@ -26,7 +26,8 @@ src/
 ui/                the browser UI: app.js, results.js and one module per step in ui/steps/
 schema/            fields.yaml and vocab.yaml: the source of the schema
 docs/              usage, processing steps, canonical fields (generated)
-scripts/           schema and NUCC generators; rmap, the CLI from source
+scripts/           schema and NUCC generators; rmap, the CLI from source; the demo's builders
+demo/              the public demo site: sample rosters, site styles, the lookup function (demo/README.md)
 test/              node:test tests on a synthetic roster (test/fixtures/)
 ```
 

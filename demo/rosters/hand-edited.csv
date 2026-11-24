@@ -1,0 +1,16 @@
+Action,First Name,Last Name,Credentials,NPI,Sex,Specialty,Group Name,Group NPI,TIN,Address,Address 2,City,State,Zip Code,Phone,Fax,Effective Date,Accepting New Patients
+Change,Keely,Takayama,"PT, DPT",1407742612,Female,Physical Therapist,"Huffman Clinic, PLLC",1558896258,99 9900004,3445 PACIFIC COAST HWY STE 310,,Torrance,California,90505,3103701200,,01/01/27,Y
+New,Nicolle,Steiner,PA-C,1255964862,Female,Physician Assistant,"Comprehensive Pain Management, PA",1639103674,999900005,1825 EASTCHESTER RD,,Bronx,ny,10461-2301,718-904-2000,,1/1/2027,Yes
+add,HOLLY,Shumway,MA,1215244587,F,"Counselor, Professional",Deliver Me Joy Ltd,1326413113,999900006,630 B AVE STE 8,,Lake Oswego,OR,97034,(503) 784-3489,,2027-01-01,Yes
+Change,AARON,Mcreynolds,FNP,1588204291,Male,"Nurse Practitioner, Psych/Mental Health","Huffman Clinic, PLLC",1558896258,99 9900004,196 CUMBERLAND RD,,Cedar Bluff,VA,24609,276-964-6702,,1/1/2027,Yes
+Term,MARICARMEN ,Laboy Quinones,LCSW,1861163537,F,"Social Worker, Clinical","Comprehensive Pain Management, PA",1639103674,99 9900005,4427 EMERSON ST STE 4,,Jacksonville,fl,32207,904-398-7015,,"Jan 1, 2027",Y
+add,ANITA,Shulman,LCSW,1454734441,F,"Social Worker, Clinical",Deliver Me Joy Ltd,1326413113,99-9900006,1600 CENTRAL AVE,,Far Rockaway,ny,11691,7183271600,,1-15-2027,Y
+ADD,Danielle,Nguyen,M.D.,1558564674,f,Pediatrics,"Huffman Clinic, PLLC",1558896258,99 9900004,1411 E 31ST ST,SUITE K6 PEDIATRICS,Oakland,CA,94602,(510) 437-4887,,"Jan 1, 2027",
+add,HOLLY,Shumway,MA,1215244587,F,"Counselor, Professional",Deliver Me Joy Ltd,1326413113,999900006,630 B AVE STE 8,,Lake Oswego,OR,97034,(503) 784-3489,,2027-01-01,Yes
+Add,shaina ,Hickman,dc,1508428780,Female,Chiropractor,"Comprehensive Pain Management, PA",1639103674,999900005,1856 ASHWOOD CIR,,Ft Wright,KY,41011,859-331-8000,,"Jan 1, 2027",Y
+Change,jessie,Chasan-Taber,LMSW,1477339463,Female,Social Worker,Deliver Me Joy Ltd,1326413113,99 9900006,138 W 25TH ST FL 10,,New York,ny,10001,212-335-2100,,1/1/2027,Y
+New,Amy,Kasper,M.D.,1992791800,f,"Pediatrics, Adolescent Medicine","Huffman Clinic, PLLC",1558896258,99 9900004,2207 BOSTON RD,,Wilbraham,Massachusetts,01095-1155,4135991201,,01/01/27,
+Term,jennnifer,Avgerinos,,1598210197,F,Case Manager/Care Coordinator,"Comprehensive Pain Management, PA",1639103674,99 9900005,1015 LANTON RD,,West Plains,MO,65775-3854,(417) 256-2570,,2027-01-01,Y
+New,Sefrash ,Yaregal,,N/A,Female,"Registered Nurse, Nephrology",Deliver Me Joy Ltd,1326413113,99-9900006,4801 E LINWOOD BLVD,,Kansas City,Missouri,64128,816-922-2479,,2027-01-01,N
+add,Leona,Ashmore Kearse,Psy.D.,1548425564,f,"Psychologist, Clinical Child & Adolescent","Huffman Clinic, PLLC",1558896258,999900004,57 WYANDOTTE ST,,Selden,ny,11784-4026,(516) 238-1210,,1/1/2027,Y
+add,ELISABETH ,Paronish,MS-SLP,1730087321,Female,"Speech-Language Pathologist,  ","Comprehensive Pain Management, PA",1639103674,99 9900005,1 HEALTHCARE DR,,Philippi,West Virginia,26416-9405,304.457.1760,,1/1/2027,Y

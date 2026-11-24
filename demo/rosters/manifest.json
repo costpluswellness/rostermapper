@@ -1,0 +1,72 @@
+[
+	{
+		"file": "tidy-workbook.xlsx",
+		"title": "Tidy workbook",
+		"format": "xlsx",
+		"rows": 20,
+		"shows": [
+			"Title rows above the header",
+			"An Adds and a Terms sheet; the action comes from the sheet name",
+			"A Read Me tab to ignore",
+			"ZIPs stored as numbers, so New England loses its leading zero",
+			"Blank taxonomies and a blank legal name, filled from NPPES"
+		]
+	},
+	{
+		"file": "hand-edited.csv",
+		"title": "Hand-edited CSV",
+		"format": "csv",
+		"rows": 15,
+		"shows": [
+			"An Action column spelled five ways",
+			"Dates in five formats, phones in four",
+			"States spelled out or lower case, ZIP+4",
+			"An NPI typo that fails its check digit, and one written N/A",
+			"A duplicate row"
+		]
+	},
+	{
+		"file": "DIRECTORY_EXTRACT_TERMS_20261130.csv",
+		"title": "Database extract",
+		"format": "csv",
+		"rows": 10,
+		"shows": [
+			"SCREAMING_SNAKE headers (PROV_FIRST_NM, SVC_ST_CD)",
+			"No action column: TERM comes from the file name",
+			"Dates as YYYYMMDD, 9-digit ZIPs, tax IDs without a dash",
+			"A term reason kept as a note"
+		]
+	},
+	{
+		"file": "multi-location.xlsx",
+		"title": "Several locations each",
+		"format": "xlsx",
+		"rows": 18,
+		"shows": [
+			"One row per provider per location",
+			"Primary location, directory and PCP flags as Y/N",
+			"The Review graph: providers, locations and billing, and how they connect"
+		]
+	},
+	{
+		"file": "facilities.xls",
+		"title": "Facilities (legacy .xls)",
+		"format": "xls",
+		"rows": 8,
+		"shows": [
+			"An Excel 97-2003 file",
+			"Organizations, not individuals: the category is detected as facility",
+			"Organization NPIs checked against NPPES"
+		]
+	},
+	{
+		"file": "wide-locations.xlsx",
+		"title": "Wide: locations across a row",
+		"format": "xlsx",
+		"rows": 8,
+		"shows": [
+			"Two practice addresses on one row: flagged as needing a transform (not built yet)",
+			"Names as \"Last, First\" in one column"
+		]
+	}
+]

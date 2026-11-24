@@ -99,6 +99,9 @@
 /* Upload: the file and external sources on the left, the roster's settings on the right; the preview under both */
 .step { margin-top: 0; }
 .landing { max-width: 40rem; margin: 2rem auto 0; }
+.samples { font-size: 13px; color: var(--muted); margin: 1rem 0 0; line-height: 1.9; }
+.samples a { color: inherit; text-decoration-color: var(--accent); text-underline-offset: 3px; }
+.samples a:hover { color: var(--accent); }
 .landing-options { display: flex; justify-content: center; align-items: center; gap: 10px 22px; flex-wrap: wrap; margin-top: 1.25rem; font-size: 13px; color: var(--muted); }
 .landing-options .opt { display: inline-flex; align-items: center; gap: 8px; }
 .rm .landing-options select { font-size: 13px; padding: 3px 6px; }

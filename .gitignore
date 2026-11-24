@@ -8,3 +8,7 @@ samples/
 
 # Results written by the CLI (--no-ui): they hold provider PII too.
 output/
+
+# The demo site, built by `pnpm demo` (scripts/build-demo-site.ts).
+demo/_site/
+.netlify/

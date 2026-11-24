@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Demo site (`demo/`, `netlify.toml`): the docs with a sidebar, the UI at `/app/`, and six sample rosters in different shapes (tidy xlsx, hand-edited csv, database extract, several locations each, facilities in .xls, wide) built from a random sample of real NPIs from NPPES, with placeholder tax IDs. `pnpm demo` builds it, `pnpm demo:serve` serves it locally; see demo/README.md
+- `session.samples` (`[{ file, title?, note? }]`): a host lists sample rosters, shown under the drop as "Try a sample"; each opens with `?sample=<file>`
+- `answerLookup` in `src/validate/lookup.ts` answers the UI's lookup routes for any host (the CLI's server and the demo's function)
+
 ## 1.0.0-beta.1
 
 - Host hooks for embedding: the page passes its query string to `session`, `file` and `mapping`, so a host can say which roster to open (`index.html?attachment=…`); `file` may answer with the roster's bytes, read like an upload; `session.send = { label }` adds a button next to Download that POSTs the result (each sheet's records, left-out rows included, mapping and counts) to the host's `send` route, which answers `{ message?, open? }`. `--send <url>` does it from the command line. See docs/usage.md, Embedding the UI

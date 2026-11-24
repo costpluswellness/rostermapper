@@ -1,0 +1,1405 @@
+{
+	"drawn": "2026-11-24",
+	"asked": 745,
+	"individual": [
+		{
+			"npi": "1205822889",
+			"type": "individual",
+			"first": "ADAM",
+			"middle": "JAY",
+			"last": "COHEN",
+			"credential": "MD",
+			"sex": "M",
+			"taxonomy": "207RC0000X",
+			"taxonomyName": "Internal Medicine, Cardiovascular Disease",
+			"licenseState": "FL",
+			"license": "ME54380",
+			"address": {
+				"line1": "2 TAMPA GENERAL CIR",
+				"line2": "STC 3RD FLOOR",
+				"city": "TAMPA",
+				"state": "FL",
+				"zip": "336063603",
+				"phone": "813-259-0600"
+			}
+		},
+		{
+			"npi": "1487379863",
+			"type": "individual",
+			"first": "CYNTHIA",
+			"middle": "SUE",
+			"last": "LONG",
+			"credential": "BSN, RN, CPN",
+			"sex": "F",
+			"taxonomy": "163W00000X",
+			"taxonomyName": "Registered Nurse",
+			"licenseState": "OH",
+			"license": "RN.334625",
+			"address": {
+				"line1": "700 CHILDRENS DR",
+				"city": "COLUMBUS",
+				"state": "OH",
+				"zip": "432052639",
+				"phone": "614-722-5902"
+			}
+		},
+		{
+			"npi": "1710299920",
+			"type": "individual",
+			"first": "DANA",
+			"middle": "M",
+			"last": "COMSTOCK",
+			"credential": "NJCSP, BCBA",
+			"sex": "F",
+			"taxonomy": "103K00000X",
+			"taxonomyName": "Behavior Analyst",
+			"licenseState": "NJ",
+			"license": "1-09-6468",
+			"address": {
+				"line1": "55 MEETING HOUSE LN",
+				"city": "TURNERSVILLE",
+				"state": "NJ",
+				"zip": "080121748",
+				"phone": "856-297-0436"
+			}
+		},
+		{
+			"npi": "1326772161",
+			"type": "individual",
+			"first": "JOHNATHAN",
+			"middle": "MICHAEL",
+			"last": "SCHNEEMAN",
+			"sex": "M",
+			"taxonomy": "172V00000X",
+			"taxonomyName": "Community Health Worker",
+			"licenseState": "OH",
+			"license": null,
+			"address": {
+				"line1": "11 GRAHAM DR",
+				"city": "ATHENS",
+				"state": "OH",
+				"zip": "457011430",
+				"phone": "800-321-8293"
+			}
+		},
+		{
+			"npi": "1114330974",
+			"type": "individual",
+			"first": "HASSAN",
+			"middle": "ALI",
+			"last": "AKEL",
+			"credential": "D.O",
+			"sex": "M",
+			"taxonomy": "207P00000X",
+			"taxonomyName": "Emergency Medicine",
+			"licenseState": "MI",
+			"license": "5101021130",
+			"address": {
+				"line1": "26611 W 7 MILE RD",
+				"city": "REDFORD",
+				"state": "MI",
+				"zip": "482402063",
+				"phone": "313-300-2549"
+			}
+		},
+		{
+			"npi": "1073057824",
+			"type": "individual",
+			"first": "MORIAH",
+			"last": "KEARNEY",
+			"credential": "Ph.D.",
+			"sex": "F",
+			"taxonomy": "103T00000X",
+			"taxonomyName": "Psychologist",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "853 BROADWAY",
+				"city": "NEW YORK",
+				"state": "NY",
+				"zip": "100034703",
+				"phone": "917-854-7092"
+			}
+		},
+		{
+			"npi": "1083093777",
+			"type": "individual",
+			"first": "NANCY",
+			"last": "GUNBY",
+			"credential": "CASAC",
+			"sex": "F",
+			"taxonomy": "101YA0400X",
+			"taxonomyName": "Counselor, Addiction (Substance Use Disorder)",
+			"licenseState": "NY",
+			"license": "22118",
+			"address": {
+				"line1": "115 LIBERTY ST",
+				"city": "BATH",
+				"state": "NY",
+				"zip": "148101508",
+				"phone": "607-664-2156"
+			}
+		},
+		{
+			"npi": "1770844730",
+			"type": "individual",
+			"first": "DEBRA",
+			"middle": "L",
+			"last": "JENKINS",
+			"sex": "F",
+			"taxonomy": "171M00000X",
+			"taxonomyName": "Case Manager/Care Coordinator",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "2707 BROWNS LN",
+				"city": "JONESBORO",
+				"state": "AR",
+				"zip": "724017213",
+				"phone": "870-972-4939"
+			}
+		},
+		{
+			"npi": "1427628924",
+			"type": "individual",
+			"first": "NIRALI",
+			"last": "SHAH",
+			"credential": "MD",
+			"sex": "F",
+			"taxonomy": "207R00000X",
+			"taxonomyName": "Internal Medicine",
+			"licenseState": "CT",
+			"license": "76017",
+			"address": {
+				"line1": "80 SEYMOUR ST",
+				"city": "HARTFORD",
+				"state": "CT",
+				"zip": "061028000",
+				"phone": "860-972-0549"
+			}
+		},
+		{
+			"npi": "1346844826",
+			"type": "individual",
+			"first": "GARY",
+			"middle": "MICHAEL",
+			"last": "TRAUTH",
+			"sex": "M",
+			"taxonomy": "183500000X",
+			"taxonomyName": "Pharmacist",
+			"licenseState": "IN",
+			"license": "26019287A",
+			"address": {
+				"line1": "201 E TIPTON ST",
+				"city": "SEYMOUR",
+				"state": "IN",
+				"zip": "472743511",
+				"phone": "812-522-2628"
+			}
+		},
+		{
+			"npi": "1316520794",
+			"type": "individual",
+			"first": "SIERRA",
+			"middle": "LYTERA NICOLE",
+			"last": "PAYTON",
+			"credential": "CNM",
+			"sex": "F",
+			"taxonomy": "367A00000X",
+			"taxonomyName": "Advanced Practice Midwife",
+			"licenseState": "FL",
+			"license": "CNM06974",
+			"address": {
+				"line1": "4700 LAS VEGAS BLVD N",
+				"city": "NELLIS AFB",
+				"state": "NV",
+				"zip": "891916600",
+				"phone": "702-653-2273"
+			}
+		},
+		{
+			"npi": "1467452870",
+			"type": "individual",
+			"first": "LIZA",
+			"middle": "M.",
+			"last": "BENFATTI",
+			"credential": "NNP",
+			"sex": "F",
+			"taxonomy": "363LN0000X",
+			"taxonomyName": "Nurse Practitioner, Neonatal",
+			"licenseState": "TX",
+			"license": "604863",
+			"address": {
+				"line1": "5201 HARRY HINES BLVD",
+				"line2": "MEDICAL STAFF SERVICES",
+				"city": "DALLAS",
+				"state": "TX",
+				"zip": "752357708",
+				"phone": "214-590-8006"
+			}
+		},
+		{
+			"npi": "1225645914",
+			"type": "individual",
+			"first": "DANIELLE",
+			"last": "REHMANN",
+			"sex": "F",
+			"taxonomy": "106S00000X",
+			"taxonomyName": "Behavior Technician",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "515 S 700 E STE 2A",
+				"city": "SALT LAKE CITY",
+				"state": "UT",
+				"zip": "841022855",
+				"phone": "801-935-4171"
+			}
+		},
+		{
+			"npi": "1972364644",
+			"type": "individual",
+			"first": "EVAN",
+			"last": "DICKERSON",
+			"sex": "M",
+			"taxonomy": "106S00000X",
+			"taxonomyName": "Behavior Technician",
+			"licenseState": "LA",
+			"license": null,
+			"address": {
+				"line1": "11607 SOUTHFORK AVE",
+				"city": "BATON ROUGE",
+				"state": "LA",
+				"zip": "708165220",
+				"phone": "504-641-4297"
+			}
+		},
+		{
+			"npi": "1245947530",
+			"type": "individual",
+			"first": "ERIKA",
+			"last": "VALENCIA",
+			"credential": "PA-C",
+			"sex": "F",
+			"taxonomy": "363A00000X",
+			"taxonomyName": "Physician Assistant",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "20203 BRIDGELAND CREEK PKWY STE 150",
+				"city": "CYPRESS",
+				"state": "TX",
+				"zip": "774339200",
+				"phone": "832-678-8330"
+			}
+		},
+		{
+			"npi": "1851292338",
+			"type": "individual",
+			"first": "ISAAC",
+			"last": "ADJEI",
+			"credential": "PharmD",
+			"sex": "M",
+			"taxonomy": "183500000X",
+			"taxonomyName": "Pharmacist",
+			"licenseState": "MA",
+			"license": "PH240417",
+			"address": {
+				"line1": "435 SHREWSBURY ST STE 4",
+				"city": "WORCESTER",
+				"state": "MA",
+				"zip": "016041691",
+				"phone": "508-351-0989"
+			}
+		},
+		{
+			"npi": "1386714491",
+			"type": "individual",
+			"first": "STACY",
+			"middle": "BETH",
+			"last": "ABRAMS",
+			"credential": "Physicians Assistant",
+			"sex": "F",
+			"taxonomy": "363A00000X",
+			"taxonomyName": "Physician Assistant",
+			"licenseState": "NY",
+			"license": "007406",
+			"address": {
+				"line1": "622 W 168 STREET",
+				"line2": "PH 1137 COLUMBIA UNIVERSITY MED CENTER",
+				"city": "NEW YORK",
+				"state": "NY",
+				"zip": "100323784",
+				"phone": "212-305-2995"
+			}
+		},
+		{
+			"npi": "1467189068",
+			"type": "individual",
+			"first": "CARL",
+			"middle": "L",
+			"last": "WILSON",
+			"credential": "LPC",
+			"sex": "M",
+			"taxonomy": "101YM0800X",
+			"taxonomyName": "Counselor, Mental Health",
+			"licenseState": "IL",
+			"license": "178.017598",
+			"address": {
+				"line1": "858 N CLARK ST STE 203",
+				"city": "CHICAGO",
+				"state": "IL",
+				"zip": "606106804",
+				"phone": "312-298-9224"
+			}
+		},
+		{
+			"npi": "1407742612",
+			"type": "individual",
+			"first": "KEELY",
+			"last": "TAKAYAMA",
+			"credential": "PT, DPT",
+			"sex": "F",
+			"taxonomy": "225100000X",
+			"taxonomyName": "Physical Therapist",
+			"licenseState": "CA",
+			"license": "308083",
+			"address": {
+				"line1": "3445 PACIFIC COAST HWY STE 310",
+				"city": "TORRANCE",
+				"state": "CA",
+				"zip": "905056660",
+				"phone": "310-370-1200"
+			}
+		},
+		{
+			"npi": "1255964862",
+			"type": "individual",
+			"first": "NICOLLE",
+			"last": "STEINER",
+			"credential": "PA-C",
+			"sex": "F",
+			"taxonomy": "363A00000X",
+			"taxonomyName": "Physician Assistant",
+			"licenseState": "NY",
+			"license": "024109",
+			"address": {
+				"line1": "1825 EASTCHESTER RD",
+				"city": "BRONX",
+				"state": "NY",
+				"zip": "104612301",
+				"phone": "718-904-2000"
+			}
+		},
+		{
+			"npi": "1215244587",
+			"type": "individual",
+			"first": "HOLLY",
+			"middle": "A",
+			"last": "SHUMWAY",
+			"credential": "MA",
+			"sex": "F",
+			"taxonomy": "101YP2500X",
+			"taxonomyName": "Counselor, Professional",
+			"licenseState": "OR",
+			"license": "C3259",
+			"address": {
+				"line1": "630 B AVE STE 8",
+				"city": "LAKE OSWEGO",
+				"state": "OR",
+				"zip": "970342960",
+				"phone": "503-784-3489"
+			}
+		},
+		{
+			"npi": "1588204291",
+			"type": "individual",
+			"first": "AARON",
+			"middle": "CHARLES",
+			"last": "MCREYNOLDS",
+			"credential": "FNP",
+			"sex": "M",
+			"taxonomy": "363LP0808X",
+			"taxonomyName": "Nurse Practitioner, Psych/Mental Health",
+			"licenseState": "VA",
+			"license": "0024178668",
+			"address": {
+				"line1": "196 CUMBERLAND RD",
+				"city": "CEDAR BLUFF",
+				"state": "VA",
+				"zip": "246091137",
+				"phone": "276-964-6702"
+			}
+		},
+		{
+			"npi": "1861163537",
+			"type": "individual",
+			"first": "MARICARMEN",
+			"last": "LABOY QUINONES",
+			"credential": "LCSW",
+			"sex": "F",
+			"taxonomy": "1041C0700X",
+			"taxonomyName": "Social Worker, Clinical",
+			"licenseState": "PR",
+			"license": "15180",
+			"address": {
+				"line1": "4427 EMERSON ST STE 4",
+				"city": "JACKSONVILLE",
+				"state": "FL",
+				"zip": "322074960",
+				"phone": "904-398-7015"
+			}
+		},
+		{
+			"npi": "1457434441",
+			"type": "individual",
+			"first": "ANITA",
+			"last": "SHULMAN",
+			"credential": "LCSW",
+			"sex": "F",
+			"taxonomy": "1041C0700X",
+			"taxonomyName": "Social Worker, Clinical",
+			"licenseState": "NY",
+			"license": "PRO172761",
+			"address": {
+				"line1": "1600 CENTRAL AVE",
+				"city": "FAR ROCKAWAY",
+				"state": "NY",
+				"zip": "116914008",
+				"phone": "718-327-1600"
+			}
+		},
+		{
+			"npi": "1558564674",
+			"type": "individual",
+			"first": "DANIELLE",
+			"middle": "THANH-AN",
+			"last": "NGUYEN",
+			"credential": "M.D.",
+			"sex": "F",
+			"taxonomy": "208000000X",
+			"taxonomyName": "Pediatrics",
+			"licenseState": "CA",
+			"license": "A93928",
+			"address": {
+				"line1": "1411 E 31ST ST",
+				"line2": "SUITE K6 PEDIATRICS",
+				"city": "OAKLAND",
+				"state": "CA",
+				"zip": "94602",
+				"phone": "510-437-4887"
+			}
+		},
+		{
+			"npi": "1508428780",
+			"type": "individual",
+			"first": "SHAINA",
+			"middle": "MAE",
+			"last": "HICKMAN",
+			"credential": "dc",
+			"sex": "F",
+			"taxonomy": "111N00000X",
+			"taxonomyName": "Chiropractor",
+			"licenseState": "KY",
+			"license": "5585",
+			"address": {
+				"line1": "1856 ASHWOOD CIR",
+				"city": "FT WRIGHT",
+				"state": "KY",
+				"zip": "410112602",
+				"phone": "859-331-8000"
+			}
+		},
+		{
+			"npi": "1477339463",
+			"type": "individual",
+			"first": "JESSIE",
+			"last": "CHASAN-TABER",
+			"credential": "LMSW",
+			"sex": "F",
+			"taxonomy": "104100000X",
+			"taxonomyName": "Social Worker",
+			"licenseState": "NY",
+			"license": "121024",
+			"address": {
+				"line1": "138 W 25TH ST FL 10",
+				"city": "NEW YORK",
+				"state": "NY",
+				"zip": "100017470",
+				"phone": "212-335-2100"
+			}
+		},
+		{
+			"npi": "1992791800",
+			"type": "individual",
+			"first": "AMY",
+			"middle": "C.",
+			"last": "KASPER",
+			"credential": "MD",
+			"sex": "F",
+			"taxonomy": "2080A0000X",
+			"taxonomyName": "Pediatrics, Adolescent Medicine",
+			"licenseState": "MA",
+			"license": "159995",
+			"address": {
+				"line1": "2207 BOSTON RD",
+				"city": "WILBRAHAM",
+				"state": "MA",
+				"zip": "010951155",
+				"phone": "413-599-1201"
+			}
+		},
+		{
+			"npi": "1598210197",
+			"type": "individual",
+			"first": "JENNNIFER",
+			"last": "AVGERINOS",
+			"sex": "F",
+			"taxonomy": "171M00000X",
+			"taxonomyName": "Case Manager/Care Coordinator",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "1015 LANTON RD",
+				"city": "WEST PLAINS",
+				"state": "MO",
+				"zip": "657753854",
+				"phone": "417-256-2570"
+			}
+		},
+		{
+			"npi": "1326853201",
+			"type": "individual",
+			"first": "SEFRASH",
+			"last": "YAREGAL",
+			"sex": "F",
+			"taxonomy": "163WN0300X",
+			"taxonomyName": "Registered Nurse, Nephrology",
+			"licenseState": "KS",
+			"license": "14-106258-091",
+			"address": {
+				"line1": "4801 E LINWOOD BLVD",
+				"city": "KANSAS CITY",
+				"state": "MO",
+				"zip": "641282226",
+				"phone": "816-922-2479"
+			}
+		},
+		{
+			"npi": "1548425564",
+			"type": "individual",
+			"first": "LEONA",
+			"middle": "ANITA",
+			"last": "ASHMORE KEARSE",
+			"credential": "Psy.D.",
+			"sex": "F",
+			"taxonomy": "103TC2200X",
+			"taxonomyName": "Psychologist, Clinical Child & Adolescent",
+			"licenseState": "NY",
+			"license": "014570-1",
+			"address": {
+				"line1": "57 WYANDOTTE ST",
+				"city": "SELDEN",
+				"state": "NY",
+				"zip": "117844026",
+				"phone": "516-238-1210"
+			}
+		},
+		{
+			"npi": "1730087321",
+			"type": "individual",
+			"first": "ELISABETH",
+			"middle": "JANE",
+			"last": "PARONISH",
+			"credential": "MS-SLP",
+			"sex": "F",
+			"taxonomy": "235Z00000X",
+			"taxonomyName": "Speech-Language Pathologist,  ",
+			"licenseState": "WV",
+			"license": "1144",
+			"address": {
+				"line1": "1 HEALTHCARE DR",
+				"city": "PHILIPPI",
+				"state": "WV",
+				"zip": "264169405",
+				"phone": "304-457-1760"
+			}
+		},
+		{
+			"npi": "1336074830",
+			"type": "individual",
+			"first": "SEAN",
+			"last": "JACKSON",
+			"sex": "M",
+			"taxonomy": "225400000X",
+			"taxonomyName": "Rehabilitation Practitioner",
+			"licenseState": "CA",
+			"license": null,
+			"address": {
+				"line1": "7220 TRADE ST STE 102",
+				"city": "SAN DIEGO",
+				"state": "CA",
+				"zip": "921212325",
+				"phone": "619-291-9347"
+			}
+		},
+		{
+			"npi": "1598892275",
+			"type": "individual",
+			"first": "STACY",
+			"middle": "L",
+			"last": "TAYLOR",
+			"credential": "M.A., BCBA",
+			"sex": "F",
+			"taxonomy": "103K00000X",
+			"taxonomyName": "Behavior Analyst",
+			"licenseState": "FL",
+			"license": "1-04-2094",
+			"address": {
+				"line1": "2695 CYPRESS HEAD TRL",
+				"city": "OVIEDO",
+				"state": "FL",
+				"zip": "327657381",
+				"phone": "407-375-8176"
+			}
+		},
+		{
+			"npi": "1477781714",
+			"type": "individual",
+			"first": "YVETTE",
+			"last": "KOTTMAN",
+			"credential": "SLP",
+			"sex": "F",
+			"taxonomy": "235Z00000X",
+			"taxonomyName": "Speech-Language Pathologist,  ",
+			"licenseState": "DE",
+			"license": "01-0000994",
+			"address": {
+				"line1": "705 NORTH ST",
+				"city": "MILFORD",
+				"state": "DE",
+				"zip": "199632707",
+				"phone": "302-424-1770"
+			}
+		},
+		{
+			"npi": "1013769355",
+			"type": "individual",
+			"first": "KATHLEEN",
+			"middle": "MICHELE",
+			"last": "CHIRGWIN",
+			"credential": "CRM",
+			"sex": "F",
+			"taxonomy": "175T00000X",
+			"taxonomyName": "Peer Specialist",
+			"licenseState": "OR",
+			"license": null,
+			"address": {
+				"line1": "6828 SE HOLGATE BLVD",
+				"city": "PORTLAND",
+				"state": "OR",
+				"zip": "972063504",
+				"phone": "503-795-3987"
+			}
+		},
+		{
+			"npi": "1215230339",
+			"type": "individual",
+			"first": "CHRISTINE",
+			"middle": "DARLENE",
+			"last": "IZQUIERDO",
+			"sex": "F",
+			"taxonomy": "103T00000X",
+			"taxonomyName": "Psychologist",
+			"licenseState": "CA",
+			"license": "PSY27806",
+			"address": {
+				"line1": "330 N SCREENLAND DR APT 327",
+				"city": "BURBANK",
+				"state": "CA",
+				"zip": "91505",
+				"phone": "909-918-7639"
+			}
+		},
+		{
+			"npi": "1467550301",
+			"type": "individual",
+			"first": "PATRICIA",
+			"middle": "J",
+			"last": "DEUR",
+			"credential": "LMSW",
+			"sex": "F",
+			"taxonomy": "1041C0700X",
+			"taxonomyName": "Social Worker, Clinical",
+			"licenseState": "MI",
+			"license": "6801033910",
+			"address": {
+				"line1": "376 E APPLE AVENUE",
+				"city": "MUSKEGON",
+				"state": "MI",
+				"zip": "49442",
+				"phone": "231-724-1111"
+			}
+		},
+		{
+			"npi": "1407750292",
+			"type": "individual",
+			"first": "MOLLY",
+			"middle": "JANE",
+			"last": "MOORE",
+			"credential": "RD, LD",
+			"sex": "F",
+			"taxonomy": "133V00000X",
+			"taxonomyName": "Dietitian, Registered",
+			"licenseState": "OK",
+			"license": "3525",
+			"address": {
+				"line1": "1200 CHILDRENS AVE STE 5F",
+				"city": "OKLAHOMA CITY",
+				"state": "OK",
+				"zip": "731044637",
+				"phone": "405-271-6208"
+			}
+		},
+		{
+			"npi": "1063055242",
+			"type": "individual",
+			"first": "VISTA",
+			"last": "KHOSHROO",
+			"credential": "PharmD",
+			"sex": "F",
+			"taxonomy": "183500000X",
+			"taxonomyName": "Pharmacist",
+			"licenseState": "MD",
+			"license": "24451",
+			"address": {
+				"line1": "19411 RAYFIELD DR",
+				"city": "GERMANTOWN",
+				"state": "MD",
+				"zip": "208746257",
+				"phone": "240-380-7240"
+			}
+		},
+		{
+			"npi": "1982278016",
+			"type": "individual",
+			"first": "JESSE",
+			"middle": "J",
+			"last": "ABSTON",
+			"credential": "OTD, ORT",
+			"sex": "M",
+			"taxonomy": "225X00000X",
+			"taxonomyName": "Occupational Therapist",
+			"licenseState": "VA",
+			"license": "0119009233",
+			"address": {
+				"line1": "4840 WALLER RD STE 200",
+				"city": "RICHMOND",
+				"state": "VA",
+				"zip": "232302912",
+				"phone": "804-893-5010"
+			}
+		},
+		{
+			"npi": "1760459242",
+			"type": "individual",
+			"first": "PRASHANT",
+			"last": "DIXIT",
+			"credential": "MD",
+			"sex": "M",
+			"taxonomy": "208000000X",
+			"taxonomyName": "Pediatrics",
+			"licenseState": "MS",
+			"license": "17476",
+			"address": {
+				"line1": "3650 GROVELAND RD",
+				"city": "OCEAN SPRINGS",
+				"state": "MS",
+				"zip": "395645754",
+				"phone": "228-875-0780"
+			}
+		},
+		{
+			"npi": "1730770413",
+			"type": "individual",
+			"first": "KIMBERLY",
+			"last": "LAMB",
+			"sex": "F",
+			"taxonomy": "3747P1801X",
+			"taxonomyName": "Technician, Personal Care Attendant",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "1599 2ND AVE",
+				"city": "CHARLESTON",
+				"state": "WV",
+				"zip": "253872514",
+				"phone": "304-344-0586"
+			}
+		},
+		{
+			"npi": "1114467321",
+			"type": "individual",
+			"first": "HOLLY",
+			"middle": "MELISSA",
+			"last": "MASON",
+			"credential": "NP-C",
+			"sex": "F",
+			"taxonomy": "363L00000X",
+			"taxonomyName": "Nurse Practitioner",
+			"licenseState": "NC",
+			"license": "5009272",
+			"address": {
+				"line1": "40 N MERRIMON AVE",
+				"line2": "STE 117",
+				"city": "ASHEVILLE",
+				"state": "NC",
+				"zip": "288041368",
+				"phone": "828-348-8232"
+			}
+		},
+		{
+			"npi": "1376892141",
+			"type": "individual",
+			"first": "STEPHANIE",
+			"middle": "L",
+			"last": "LESSER",
+			"credential": "NP",
+			"sex": "F",
+			"taxonomy": "363LP0200X",
+			"taxonomyName": "Nurse Practitioner, Pediatrics",
+			"licenseState": "AZ",
+			"license": "AP4599",
+			"address": {
+				"line1": "1919 E THOMAS RD",
+				"city": "PHOENIX",
+				"state": "AZ",
+				"zip": "850167710",
+				"phone": "602-933-3277"
+			}
+		},
+		{
+			"npi": "1578450615",
+			"type": "individual",
+			"first": "ASMA",
+			"middle": "A",
+			"last": "NOOR",
+			"sex": "F",
+			"taxonomy": "106S00000X",
+			"taxonomyName": "Behavior Technician",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "941 HILLWIND RD NE STE 301",
+				"city": "FRIDLEY",
+				"state": "MN",
+				"zip": "554325965",
+				"phone": "952-303-5803"
+			}
+		},
+		{
+			"npi": "1386117505",
+			"type": "individual",
+			"first": "PHILIP",
+			"last": "ROSS",
+			"credential": "RN",
+			"sex": "M",
+			"taxonomy": "163W00000X",
+			"taxonomyName": "Registered Nurse",
+			"licenseState": "NY",
+			"license": "376529",
+			"address": {
+				"line1": "90 ONDAORA PKWY",
+				"city": "HIGHLAND FALLS",
+				"state": "NY",
+				"zip": "109284012",
+				"phone": "845-258-0236"
+			}
+		},
+		{
+			"npi": "1245381698",
+			"type": "individual",
+			"first": "LONNY",
+			"middle": "WAYNE",
+			"last": "EAVES",
+			"credential": "M.A., L.P.C.",
+			"sex": "M",
+			"taxonomy": "101YP2500X",
+			"taxonomyName": "Counselor, Professional",
+			"licenseState": "TX",
+			"license": "15646",
+			"address": {
+				"line1": "1901 MACKENZIE TRL",
+				"city": "AMARILLO",
+				"state": "TX",
+				"zip": "791243730",
+				"phone": "806-353-4630"
+			}
+		},
+		{
+			"npi": "1457606279",
+			"type": "individual",
+			"first": "JOHN",
+			"middle": "D",
+			"last": "DICKINSON",
+			"credential": "D.O.",
+			"sex": "M",
+			"taxonomy": "207T00000X",
+			"taxonomyName": "Neurological Surgery",
+			"licenseState": "ID",
+			"license": "O-1102",
+			"address": {
+				"line1": "2353 CORONADO ST",
+				"city": "IDAHO FALLS",
+				"state": "ID",
+				"zip": "834047407",
+				"phone": "208-542-4181"
+			}
+		},
+		{
+			"npi": "1972204188",
+			"type": "individual",
+			"first": "JULIE",
+			"last": "O'BRIEN",
+			"credential": "LCSW",
+			"sex": "F",
+			"taxonomy": "1041C0700X",
+			"taxonomyName": "Social Worker, Clinical",
+			"licenseState": "VA",
+			"license": "0904014906",
+			"address": {
+				"line1": "10124 W BROAD ST STE H",
+				"city": "GLEN ALLEN",
+				"state": "VA",
+				"zip": "230603330",
+				"phone": "703-999-5716"
+			}
+		},
+		{
+			"npi": "1639787104",
+			"type": "individual",
+			"first": "EMILY",
+			"middle": "THEREAS",
+			"last": "HETZEL",
+			"credential": "PA",
+			"sex": "F",
+			"taxonomy": "363A00000X",
+			"taxonomyName": "Physician Assistant",
+			"licenseState": "WI",
+			"license": "5243",
+			"address": {
+				"line1": "725 AMERICAN AVE",
+				"city": "WAUKESHA",
+				"state": "WI",
+				"zip": "531885031",
+				"phone": "262-928-8800"
+			}
+		},
+		{
+			"npi": "1346063765",
+			"type": "individual",
+			"first": "ALIA",
+			"middle": "BEATRICE DANIELLE",
+			"last": "MOSTAFA",
+			"credential": "APRN",
+			"sex": "F",
+			"taxonomy": "363L00000X",
+			"taxonomyName": "Nurse Practitioner",
+			"licenseState": "CT",
+			"license": "14102",
+			"address": {
+				"line1": "10 BROADWAY",
+				"city": "TRUMBULL",
+				"state": "CT",
+				"zip": "066111367",
+				"phone": "203-923-3147"
+			}
+		},
+		{
+			"npi": "1447409974",
+			"type": "individual",
+			"first": "BRENDA",
+			"middle": "R",
+			"last": "LIFFLAND",
+			"credential": "OD",
+			"sex": "F",
+			"taxonomy": "152W00000X",
+			"taxonomyName": "Optometrist",
+			"licenseState": "FL",
+			"license": "OPC4340",
+			"address": {
+				"line1": "2650 TAMPA RD",
+				"city": "PALM HARBOR",
+				"state": "FL",
+				"zip": "346843144",
+				"phone": "727-785-4419"
+			}
+		},
+		{
+			"npi": "1629487285",
+			"type": "individual",
+			"first": "COURTNEY",
+			"middle": "JANE",
+			"last": "THOMPSON",
+			"credential": "DNP, FNP",
+			"sex": "F",
+			"taxonomy": "363LF0000X",
+			"taxonomyName": "Nurse Practitioner, Family",
+			"licenseState": "CA",
+			"license": "95001073",
+			"address": {
+				"line1": "4168 FRONT ST",
+				"city": "SAN DIEGO",
+				"state": "CA",
+				"zip": "921032030",
+				"phone": "619-543-3995"
+			}
+		},
+		{
+			"npi": "1154475929",
+			"type": "individual",
+			"first": "VELIA",
+			"middle": "JO",
+			"last": "COLEMAN",
+			"credential": "L.P.C., RN",
+			"sex": "F",
+			"taxonomy": "101YM0800X",
+			"taxonomyName": "Counselor, Mental Health",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "151 E 5600 S",
+				"line2": "# 204",
+				"city": "MURRAY",
+				"state": "UT",
+				"zip": "841076181",
+				"phone": "801-262-2400"
+			}
+		},
+		{
+			"npi": "1962525683",
+			"type": "individual",
+			"first": "THOMAS",
+			"middle": "KARL",
+			"last": "GALTEN",
+			"credential": "LCSW",
+			"sex": "M",
+			"taxonomy": "1041C0700X",
+			"taxonomyName": "Social Worker, Clinical",
+			"licenseState": "WI",
+			"license": "6165-123",
+			"address": {
+				"line1": "1317 W GRAND AVE STE 6",
+				"city": "PORT WASHINGTON",
+				"state": "WI",
+				"zip": "530742075",
+				"phone": "262-427-8905"
+			}
+		},
+		{
+			"npi": "1326008418",
+			"type": "individual",
+			"first": "SCOTT",
+			"middle": "B",
+			"last": "SUTHERLAND",
+			"credential": "O. D.",
+			"sex": "M",
+			"taxonomy": "152W00000X",
+			"taxonomyName": "Optometrist",
+			"licenseState": "KY",
+			"license": "967DT",
+			"address": {
+				"line1": "304 MAIN ST",
+				"city": "CADIZ",
+				"state": "KY",
+				"zip": "422119104",
+				"phone": "270-522-3263"
+			}
+		},
+		{
+			"npi": "1043873441",
+			"type": "individual",
+			"first": "BRANDY",
+			"middle": "SHEREE",
+			"last": "FULTON",
+			"credential": "MSN, APRN, FNP-BC",
+			"sex": "F",
+			"taxonomy": "363LF0000X",
+			"taxonomyName": "Nurse Practitioner, Family",
+			"licenseState": "FL",
+			"license": "11001387",
+			"address": {
+				"line1": "3900 UNIVERSITY BLVD S",
+				"city": "JACKSONVILLE",
+				"state": "FL",
+				"zip": "322164331",
+				"phone": "904-222-6656"
+			}
+		},
+		{
+			"npi": "1841826948",
+			"type": "individual",
+			"first": "AMANDA",
+			"last": "SHEFLIN",
+			"sex": "F",
+			"taxonomy": "2255A2300X",
+			"taxonomyName": "Specialist/Technologist, Athletic Trainer",
+			"licenseState": "NY",
+			"license": "001850",
+			"address": {
+				"line1": "3 WEST AVE",
+				"city": "LE ROY",
+				"state": "NY",
+				"zip": "144821381",
+				"phone": "585-768-4550"
+			}
+		},
+		{
+			"npi": "1154567493",
+			"type": "individual",
+			"first": "WILMER",
+			"last": "RODRIGUEZ DIAZ",
+			"credential": "M.D.",
+			"sex": "M",
+			"taxonomy": "208D00000X",
+			"taxonomyName": "General Practice",
+			"licenseState": "PR",
+			"license": "17426",
+			"address": {
+				"line1": "HC 5 BOX 11285",
+				"city": "COROZAL",
+				"state": "PR",
+				"zip": "007839593",
+				"phone": "787-674-4850"
+			}
+		}
+	],
+	"organization": [
+		{
+			"npi": "1942673397",
+			"type": "organization",
+			"name": "COLORADO SPRINGS DENTAL SERVICES, PC",
+			"taxonomy": "1223P0700X",
+			"taxonomyName": "Dentist, Prosthodontics",
+			"licenseState": "CO",
+			"license": "7348",
+			"address": {
+				"line1": "251 E FOUNTAIN BLVD UNIT 100",
+				"city": "COLORADO SPRINGS",
+				"state": "CO",
+				"zip": "809034160",
+				"phone": "719-591-2004"
+			}
+		},
+		{
+			"npi": "1457453334",
+			"type": "organization",
+			"name": "GOOD SHEPHERD HOME",
+			"taxonomy": "314000000X",
+			"taxonomyName": "Skilled Nursing Facility",
+			"licenseState": "OH",
+			"license": "0982N",
+			"address": {
+				"line1": "725 COLUMBUS AVE",
+				"city": "FOSTORIA",
+				"state": "OH",
+				"zip": "448303255",
+				"phone": "419-435-1801"
+			}
+		},
+		{
+			"npi": "1528880390",
+			"type": "organization",
+			"name": "EMELIFE RADIOLOGY, PLLC",
+			"taxonomy": "2085R0202X",
+			"taxonomyName": "Radiology, Diagnostic Radiology",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "4343 N JOSEY LN",
+				"city": "CARROLLTON",
+				"state": "TX",
+				"zip": "750104603",
+				"phone": "469-310-0886"
+			}
+		},
+		{
+			"npi": "1558896258",
+			"type": "organization",
+			"name": "HUFFMAN CLINIC, PLLC",
+			"taxonomy": "207Q00000X",
+			"taxonomyName": "Family Medicine",
+			"licenseState": "IA",
+			"license": "MD-20280",
+			"address": {
+				"line1": "4480 UTICA RIDGE RD",
+				"line2": "SUITE 110",
+				"city": "BETTENDORF",
+				"state": "IA",
+				"zip": "527221656",
+				"phone": "563-742-5100"
+			}
+		},
+		{
+			"npi": "1639103674",
+			"type": "organization",
+			"name": "COMPREHENSIVE PAIN MANAGEMENT, PA",
+			"taxonomy": "174400000X",
+			"taxonomyName": "Specialist",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "3201 AIRLINE RD STE K",
+				"city": "CORPUS CHRISTI",
+				"state": "TX",
+				"zip": "784143571",
+				"phone": "361-882-4452"
+			}
+		},
+		{
+			"npi": "1326413113",
+			"type": "organization",
+			"name": "DELIVER ME JOY LTD",
+			"taxonomy": "176B00000X",
+			"taxonomyName": "Midwife",
+			"licenseState": "CO",
+			"license": "MWR114",
+			"address": {
+				"line1": "16191 OLD FOREST PT APT 107",
+				"city": "MONUMENT",
+				"state": "CO",
+				"zip": "801328689",
+				"phone": "720-454-5718"
+			}
+		},
+		{
+			"npi": "1073848966",
+			"type": "organization",
+			"name": "IHC HEALTH SERVICES INC.",
+			"taxonomy": "261QM1300X",
+			"taxonomyName": "Clinic/Center, Multi-Specialty",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "4403 HARRISON BLVD",
+				"line2": "STE 2400",
+				"city": "OGDEN",
+				"state": "UT",
+				"zip": "844033271",
+				"phone": "801-387-5300"
+			}
+		},
+		{
+			"npi": "1518002823",
+			"type": "organization",
+			"name": "CATHOLIC FAMILY SERVICES",
+			"taxonomy": "101YM0800X",
+			"taxonomyName": "Counselor, Mental Health",
+			"licenseState": "SD",
+			"license": "2073",
+			"address": {
+				"line1": "1115 E 5TH AVE",
+				"city": "MITCHELL",
+				"state": "SD",
+				"zip": "573012917",
+				"phone": "605-988-3775"
+			}
+		},
+		{
+			"npi": "1649921297",
+			"type": "organization",
+			"name": "ZEN KAT, LLC",
+			"taxonomy": "261QM0850X",
+			"taxonomyName": "Clinic/Center, Adult Mental Health",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "3104 GLADE RD",
+				"city": "BLACKSBURG",
+				"state": "VA",
+				"zip": "240601948",
+				"phone": "540-200-8972"
+			}
+		},
+		{
+			"npi": "1518523745",
+			"type": "organization",
+			"name": "ABA COOP",
+			"taxonomy": "103K00000X",
+			"taxonomyName": "Behavior Analyst",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "330 W EDMOND RD",
+				"city": "EDMOND",
+				"state": "OK",
+				"zip": "730035600",
+				"phone": "405-216-3391"
+			}
+		},
+		{
+			"npi": "1457212599",
+			"type": "organization",
+			"name": "ST. LUCIE ANESTHESIA ASSOCIATES, LLC",
+			"taxonomy": "207L00000X",
+			"taxonomyName": "Anesthesiology",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "875 MEADOWS RD",
+				"city": "BOCA RATON",
+				"state": "FL",
+				"zip": "334862349",
+				"phone": "954-939-5000"
+			}
+		},
+		{
+			"npi": "1427633387",
+			"type": "organization",
+			"name": "PATRICIA MILNER PSYCHIATRY, PLLC",
+			"taxonomy": "2084P0800X",
+			"taxonomyName": "Psychiatry & Neurology, Psychiatry",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "2050 WASHTENAW AVE. W.",
+				"city": "YPSILANTI",
+				"state": "MI",
+				"zip": "481974819",
+				"phone": "586-713-5580"
+			}
+		},
+		{
+			"npi": "1790517456",
+			"type": "organization",
+			"name": "DENTAL ARTS CENTER",
+			"taxonomy": "261QD0000X",
+			"taxonomyName": "Clinic/Center, Dental",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "623 SPOTSWOOD ENGLISHTOWN RD STE 6",
+				"city": "MONROE",
+				"state": "NJ",
+				"zip": "088313309",
+				"phone": "732-992-3434"
+			}
+		},
+		{
+			"npi": "1093362469",
+			"type": "organization",
+			"name": "CHEYENNE CHILD AND FAMILY COUNSELING CENTER, LLC",
+			"taxonomy": "101YM0800X",
+			"taxonomyName": "Counselor, Mental Health",
+			"licenseState": null,
+			"license": null,
+			"address": {
+				"line1": "721 E LINCOLNWAY",
+				"city": "CHEYENNE",
+				"state": "WY",
+				"zip": "820014703",
+				"phone": "307-631-9213"
+			}
+		}
+	]
+}

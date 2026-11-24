@@ -114,6 +114,12 @@ async function boot() {
   for (const [f, list] of Object.entries(session.allowed ?? {})) for (const v of list) (state.allowed.get(f) ?? state.allowed.set(f, new Set()).get(f)).add(v);
   // --no-nppes / --no-census win for this session; the boxes still change them (and save).
   for (const kind of ['nppes', 'census']) if (session[kind] === false) { state.sources[kind] = false; $(`use-${kind}`).checked = false; }
+  // A host's sample rosters: links that open each one (the host answers file?sample=… with it).
+  if (session.samples?.length) {
+    $('samples').hidden = false;
+    $('samples').innerHTML = 'Try a sample: ' + session.samples.map((s) =>
+      `<a href="?sample=${encodeURIComponent(s.file)}" title="${esc(s.note ?? s.file)}">${esc(s.title ?? s.file)}</a>`).join(' · ');
+  }
   if (session.mappingName) loadMapping(session.mappingName, await (await fetch(host('mapping'))).arrayBuffer());
   if (!session.name) return go('upload');
   // The CLI sends the roster already read and SSN-redacted (JSON), never the raw file. Another host

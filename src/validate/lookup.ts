@@ -46,6 +46,34 @@ export const lookupAddress = (address: string): Promise<CensusMatch | null> =>
 		return null;
 	});
 
+/**
+ * The UI's lookup routes (api/nppes, api/census, api/nppes-name), for any server that hosts the UI:
+ * the CLI's local server and the public demo's function both answer through this.
+ */
+export async function answerLookup(route: string, params: URLSearchParams): Promise<{ status: number; body: { result?: unknown; error?: string } }> {
+	let answer: Promise<unknown>;
+	if (route.endsWith('/nppes')) {
+		const npi = params.get('npi') ?? '';
+		if (!/^\d{10}$/.test(npi)) return { status: 400, body: { error: 'npi must be 10 digits' } };
+		answer = lookupNpi(npi);
+	} else if (route.endsWith('/nppes-name')) {
+		const [first, last, state] = ['first', 'last', 'state'].map((k) => (params.get(k) ?? '').slice(0, 60).trim());
+		if (!first || !last) return { status: 400, body: { error: 'first and last are required' } };
+		answer = searchNpiByName({ first, last, state: state ?? '' });
+	} else if (route.endsWith('/census')) {
+		const address = (params.get('address') ?? '').slice(0, 200);
+		if (!address) return { status: 400, body: { error: 'address is required' } };
+		answer = lookupAddress(address);
+	} else {
+		return { status: 404, body: { error: 'no such lookup' } };
+	}
+	try {
+		return { status: 200, body: { result: await answer } };
+	} catch (e) {
+		return { status: 502, body: { error: (e as Error).message } };
+	}
+}
+
 /** Answers so far: from the disk cache, or asked of NPPES and Census. */
 export const lookupStats = { saved: 0, asked: 0 };
 

@@ -7,7 +7,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lookupAddress, lookupNpi, searchNpiByName } from '../validate/lookup';
+import { answerLookup } from '../validate/lookup';
 import type { Sheet } from '../read/workbook';
 
 /** Where the UI starts. CLI flags set these; the UI can change all of them. */
@@ -34,6 +34,9 @@ export interface Session {
 	/** A host that takes the result itself: Download gets a second button with this label, which POSTs the
 	 *  result to the host's `send` route (see ui/steps/review.js, sendBody). The CLI never sets it. */
 	send?: { label: string } | undefined;
+	/** Sample rosters a host offers under the drop: each links to `?sample=<file>`, which the host's `file`
+	 *  route answers with that roster (the public demo does). The CLI never sets it. */
+	samples?: { file: string; title?: string; note?: string }[] | undefined;
 }
 
 const TYPES: Record<string, string> = {
@@ -102,26 +105,8 @@ export function openUi(session: Session, files: UiFiles = {}): Promise<string> {
 // ─── Lookups for Validate's "Run checks" ──────────────────────
 // Browsers can't call NPPES or the Census geocoder directly (no CORS), so the page asks this server.
 async function lookup(url: string, params: URLSearchParams, res: ServerResponse): Promise<void> {
-	const send = (status: number, body: unknown): void => void res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
-	let answer: Promise<unknown>;
-	if (url === '/api/nppes') {
-		const npi = params.get('npi') ?? '';
-		if (!/^\d{10}$/.test(npi)) return send(400, { error: 'npi must be 10 digits' });
-		answer = lookupNpi(npi);
-	} else if (url === '/api/nppes-name') {
-		const [first, last, state] = ['first', 'last', 'state'].map((k) => (params.get(k) ?? '').slice(0, 60).trim());
-		if (!first || !last) return send(400, { error: 'first and last are required' });
-		answer = searchNpiByName({ first: first!, last: last!, state: state ?? "" });
-	} else {
-		const address = (params.get('address') ?? '').slice(0, 200);
-		if (!address) return send(400, { error: 'address is required' });
-		answer = lookupAddress(address);
-	}
-	try {
-		send(200, { result: await answer });
-	} catch (e) {
-		send(502, { error: (e as Error).message });
-	}
+	const { status, body } = await answerLookup(url, params);
+	res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
 }
 
 // ─── Send ──────────────────────────────────────────────────────
