@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Demo site: the home page previews each sample roster as sent and as cleaned, with every changed cell highlighted (hover for the original) and left-out rows with their reason, in place of the sample cards. It opens on a random sample
+- Demo site: under the hero, a few rows of the hand-edited sample play from as sent, to cleaned (values swap in, a bad row is left out), to a graph of providers, practice locations and billing entities (hover a card to trace its chain and see its rows). Built from the library's own cleaning and grouping at build time; plays when in view, with steps and pause; reduced motion shows the graph still
+- Demo site: every sample can be previewed as sent and as cleaned, cell by cell (folded under the animation), in place of the sample cards
 - Demo rosters: Excel dates are written as day numbers, so the build machine's time zone no longer shifts them a day
 - Demo site (`demo/`, `netlify.toml`): the docs with a sidebar, the UI at `/app/`, and six sample rosters in different shapes (tidy xlsx, hand-edited csv, database extract, several locations each, facilities in .xls, wide) built from a random sample of real NPIs from NPPES, with placeholder tax IDs. `pnpm demo` builds it, `pnpm demo:serve` serves it locally; see demo/README.md
 - `session.samples` (`[{ file, title?, note? }]`): a host lists sample rosters, shown under the drop as "Try a sample"; each opens with `?sample=<file>`

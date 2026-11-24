@@ -17,7 +17,7 @@
 		"file": "hand-edited.csv",
 		"title": "Hand-edited CSV",
 		"format": "csv",
-		"rows": 15,
+		"rows": 17,
 		"blurb": "Every kind of mess: actions, dates, phones and states written any which way, an NPI typo, a duplicate.",
 		"shows": [
 			"An Action column spelled five ways",

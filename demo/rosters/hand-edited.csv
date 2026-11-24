@@ -1,8 +1,10 @@
 Action,First Name,Last Name,Credentials,NPI,Sex,Specialty,Group Name,Group NPI,TIN,Address,Address 2,City,State,Zip Code,Phone,Fax,Effective Date,Accepting New Patients
 Change,Keely,Takayama,"PT, DPT",1407742612,Female,Physical Therapist,"Huffman Clinic, PLLC",1558896258,99 9900004,3445 PACIFIC COAST HWY STE 310,,Torrance,California,90505,3103701200,,01/01/27,Y
+New,KEELY,TAKAYAMA,PT DPT,1407742612,F,Physical Therapist,"HUFFMAN CLINIC, PLLC",1558896258,999900004,4480 Utica Ridge Rd,Suite 110,BETTENDORF,IA,52722,563.742.5100,,1/1/2027,Y
 New,Nicolle,Steiner,PA-C,1255964862,Female,Physician Assistant,"Comprehensive Pain Management, PA",1639103674,999900005,1825 EASTCHESTER RD,,Bronx,ny,10461-2301,718-904-2000,,1/1/2027,Yes
 add,HOLLY,Shumway,MA,1215244587,F,"Counselor, Professional",Deliver Me Joy Ltd,1326413113,999900006,630 B AVE STE 8,,Lake Oswego,OR,97034,(503) 784-3489,,2027-01-01,Yes
 Change,AARON,Mcreynolds,FNP,1588204291,Male,"Nurse Practitioner, Psych/Mental Health","Huffman Clinic, PLLC",1558896258,99 9900004,196 CUMBERLAND RD,,Cedar Bluff,VA,24609,276-964-6702,,1/1/2027,Yes
+add,AARON,MCREYNOLDS,FNP,1588204291,M,"Nurse Practitioner, Psych/Mental Health","HUFFMAN CLINIC, PLLC",1558896258,999900004,4480 Utica Ridge Rd,Suite 110,BETTENDORF,IA,52722,563.742.5100,,1/1/2027,Y
 Term,MARICARMEN ,Laboy Quinones,LCSW,1861163537,F,"Social Worker, Clinical","Comprehensive Pain Management, PA",1639103674,99 9900005,4427 EMERSON ST STE 4,,Jacksonville,fl,32207,904-398-7015,,"Jan 1, 2027",Y
 add,ANITA,Shulman,LCSW,1454734441,F,"Social Worker, Clinical",Deliver Me Joy Ltd,1326413113,99-9900006,1600 CENTRAL AVE,,Far Rockaway,ny,11691,7183271600,,1-15-2027,Y
 ADD,Danielle,Nguyen,M.D.,1558564674,f,Pediatrics,"Huffman Clinic, PLLC",1558896258,99 9900004,1411 E 31ST ST,SUITE K6 PEDIATRICS,Oakland,CA,94602,(510) 437-4887,,"Jan 1, 2027",

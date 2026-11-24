@@ -100,6 +100,12 @@ const manifest: { file: string; title: string; format: string; rows: number; blu
 			p.taxonomyName ?? '', title(g.name), g.npi, tinText, a.line1, a.line2 ?? '', title(a.city), state, chance(0.5) ? zip9(a.zip) : zip5(a.zip), phone, '', pick(effs), pick(['Y', 'Yes', 'N', ''])];
 	});
 	rows.splice(7, 0, [...rows[2]!]); // the same provider twice
+	// Two providers also work at their group's own office, written differently on the second row.
+	for (const [i, at] of [[0, 1], [3, 5]] as const) {
+		const p = list[i]!, g = groups[0]!, a = g.address;
+		rows.splice(at, 0, [pick(['Add', 'add', 'New']), p.first.toUpperCase(), p.last.toUpperCase(), (p.credential ?? '').replace(/,\s*/g, ' '), p.npi, p.sex ?? '',
+			p.taxonomyName ?? '', g.name, g.npi, tin(g).replace('-', ''), title(a.line1), title(a.line2 ?? ''), a.city, a.state, zip5(a.zip), phoneDots(a.phone), '', usDate(date(2027, 1, 1)), 'Y']);
+	}
 	writeCsv('hand-edited.csv', [header, ...rows]);
 	manifest.push({ file: 'hand-edited.csv', title: 'Hand-edited CSV', format: 'csv', rows: rows.length,
 		blurb: 'Every kind of mess: actions, dates, phones and states written any which way, an NPI typo, a duplicate.',

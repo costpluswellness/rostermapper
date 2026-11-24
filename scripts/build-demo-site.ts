@@ -8,7 +8,7 @@
 // in demo/netlify/functions/. `pnpm demo:serve` serves the result locally the same way.
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { Marked, type Tokens } from 'marked';
-import { buildPreviews } from './demo-previews.ts';
+import { buildPreviews, buildStory } from './demo-previews.ts';
 
 const root = new URL('../', import.meta.url);
 const out = new URL('demo/_site/', root);
@@ -142,20 +142,44 @@ const previews = await buildPreviews(root, samples.map((s) => s.file));
 const previewData = JSON.stringify(samples.map((s) => ({ file: s.file, title: s.title, format: s.format, blurb: s.blurb, sheets: previews[s.file] ?? [] }))).replace(/</g, '\\u003c');
 
 const PREVIEW_JS = readFileSync(new URL('demo/site/preview.js', root), 'utf8');
+// The story under the hero: a few rows of the messiest sample, cleaned, then as a network.
+const STORY_FILE = 'hand-edited.csv';
+const storyData = JSON.stringify(await buildStory(root, STORY_FILE)).replace(/</g, '\\u003c');
+const STORY_JS = readFileSync(new URL('demo/site/story.js', root), 'utf8');
 
 const homeBody = `
 <section class="hero">
 <h1>Roster Mapper</h1>
 <p class="lede">Provider rosters come in every shape. Roster Mapper turns any roster file (xlsx, xls or csv) into a clean change file for your provider directory, with a summary of the mapping, every issue, and every row left out and why.</p>
 <div class="actions">
-  <a class="btn primary" href="#samples">${icon.play} See it on a sample</a>
+  <a class="btn primary" href="app/?sample=${encodeURIComponent(STORY_FILE)}">${icon.play} Try it on a sample</a>
   <a class="btn" href="app/">Map your own file</a>
 </div>
 <p class="small muted" style="margin-top:.9rem">Your files are read in your browser and never uploaded. Only NPIs and addresses go out, to NPPES and the US Census geocoder.</p>
 </section>
 
+<section class="story" id="story" data-stage="0" aria-label="From a messy roster to a network">
+  <div class="story-bar">
+    <span class="story-steps" role="group" aria-label="Steps">
+      <button type="button" data-stage-btn="0"><b>1</b> As sent</button>
+      <button type="button" data-stage-btn="1"><b>2</b> Cleaned</button>
+      <button type="button" data-stage-btn="2"><b>3</b> Network</button>
+    </span>
+    <button type="button" class="story-play" id="story-play" aria-label="Pause">❚❚</button>
+  </div>
+  <p class="story-cap" id="story-cap" aria-live="polite"></p>
+  <div class="story-stage">
+    <div class="story-table"><table id="story-table"></table></div>
+    <div class="story-graph"><svg id="story-graph" role="img" aria-label="Providers, practice locations and billing entities, linked"></svg></div>
+  </div>
+</section>
+<script type="application/json" id="story-data">${storyData}</script>
+<script>${STORY_JS}</script>
+
 <h2 id="samples"><a class="anchor" href="#samples">Try a sample</a></h2>
-<p>Real rosters arrive messy. Pick one and flip between the file as sent and what Roster Mapper makes of it: every highlighted cell was changed (hover to see what it was), and rows that can't move forward say why.</p>
+<p>Open one in the app: ${samples.map((s) => `<a href="app/?sample=${encodeURIComponent(s.file)}">${esc(s.title)}</a>`).join(' · ')}. Or download them and drop them in yourself.</p>
+<details class="pv-more">
+<summary>Explore every sample, cell by cell</summary>
 <div class="pv" id="pv">
   <div class="pv-pick" role="tablist" aria-label="Sample rosters">
     ${samples.map((s, i) => `<button type="button" role="tab" data-i="${i}">${esc(s.title)} <span class="fmt">${esc(s.format)}</span></button>`).join('\n    ')}
@@ -176,6 +200,7 @@ const homeBody = `
     <p class="pv-foot" id="pv-foot"></p>
   </div>
 </div>
+</details>
 <p class="note">The NPIs are real: a random sample drawn from <a href="https://npiregistry.cms.hhs.gov/" target="_blank" rel="noopener">NPPES</a> on ${esc(drawn)}, with each provider's name, credential, taxonomy and practice address as NPPES lists them. Which provider sits under which group is random and says nothing about where anyone works. Every tax ID (<code>99-99xxxxx</code>) is a placeholder.</p>
 
 <h2 id="how-it-works"><a class="anchor" href="#how-it-works">How it works</a></h2>
@@ -202,7 +227,7 @@ rostermapper roster.xlsx --ui     # open the app on this machine</code></pre>
 `;
 
 const pages: Page[] = [
-	{ path: 'index.html', title: 'Introduction', heads: [{ id: 'samples', text: 'Try a sample' }, { id: 'how-it-works', text: 'How it works' }, { id: 'install', text: 'Install' }], body: homeBody,
+	{ path: 'index.html', title: 'Introduction', heads: [{ id: 'story', text: 'See it work' }, { id: 'samples', text: 'Try a sample' }, { id: 'how-it-works', text: 'How it works' }, { id: 'install', text: 'Install' }], body: homeBody,
 		description: 'Map any healthcare provider roster file (xlsx, xls, csv) to a standard schema, in your browser. Try it on sample rosters.' },
 	...DOCS.map((d) => renderDoc(readFileSync(new URL(d.md, root), 'utf8'), d.path)),
 ];
