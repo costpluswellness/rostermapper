@@ -41,7 +41,9 @@ function writeCsv(name: string, rows: unknown[][]) {
 function writeBook(name: string, sheets: [string, unknown[][]][], bookType: 'xlsx' | 'biff8' = 'xlsx') {
 	const wb = xlsx.utils.book_new();
 	for (const [sheet, rows] of sheets) {
-		const ws = xlsx.utils.aoa_to_sheet(rows, { cellDates: true, dateNF: 'm/d/yyyy' });
+		// Dates as Excel day numbers, so the time zone this runs in can't shift them.
+		const cells = rows.map((r) => r.map((v) => (v instanceof Date ? { t: 'n', v: (v.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000, z: 'm/d/yyyy' } : v)));
+		const ws = xlsx.utils.aoa_to_sheet(cells);
 		ws['!cols'] = (rows.find((r) => r.length > 3) ?? []).map(() => ({ wch: 16 }));
 		xlsx.utils.book_append_sheet(wb, ws, sheet);
 	}
@@ -51,7 +53,7 @@ function writeBook(name: string, sheets: [string, unknown[][]][], bookType: 'xls
 }
 
 const slice = (() => { let at = 0; return (n: number) => people.slice(at, (at += n)); })();
-const manifest: { file: string; title: string; format: string; rows: number; shows: string[] }[] = [];
+const manifest: { file: string; title: string; format: string; rows: number; blurb: string; shows: string[] }[] = [];
 
 // ─── 1. A tidy workbook: title rows, an Adds and a Terms sheet, a notes tab ─────
 {
@@ -74,6 +76,7 @@ const manifest: { file: string; title: string; format: string; rows: number; sho
 		['Read Me', [['About this roster'], [], ['Adds: providers joining on January 1, 2027.'], ['Terms: providers leaving on December 31, 2026.'], ['Questions: reply to the sender.']]],
 	]);
 	manifest.push({ file: 'tidy-workbook.xlsx', title: 'Tidy workbook', format: 'xlsx', rows: adds.length + terms.length,
+		blurb: 'Title rows above the header, Adds and Terms tabs, ZIPs that lost their leading zero.',
 		shows: ['Title rows above the header', 'An Adds and a Terms sheet; the action comes from the sheet name', 'A Read Me tab at the end to ignore', 'ZIPs stored as numbers, so New England loses its leading zero', 'Blank taxonomies and a blank legal name, filled from NPPES'] });
 }
 
@@ -99,6 +102,7 @@ const manifest: { file: string; title: string; format: string; rows: number; sho
 	rows.splice(7, 0, [...rows[2]!]); // the same provider twice
 	writeCsv('hand-edited.csv', [header, ...rows]);
 	manifest.push({ file: 'hand-edited.csv', title: 'Hand-edited CSV', format: 'csv', rows: rows.length,
+		blurb: 'Every kind of mess: actions, dates, phones and states written any which way, an NPI typo, a duplicate.',
 		shows: ['An Action column spelled five ways', 'Dates in five formats, phones in four', 'States spelled out or lower case, ZIP+4', 'An NPI typo that fails its check digit, and one written N/A', 'A duplicate row'] });
 }
 
@@ -115,6 +119,7 @@ const manifest: { file: string; title: string; format: string; rows: number; sho
 	});
 	writeCsv('DIRECTORY_EXTRACT_TERMS_20261130.csv', [header, ...rows]);
 	manifest.push({ file: 'DIRECTORY_EXTRACT_TERMS_20261130.csv', title: 'Database extract', format: 'csv', rows: rows.length,
+		blurb: 'Database column names, YYYYMMDD dates, and no action column: TERM comes from the file name.',
 		shows: ['SCREAMING_SNAKE headers (PROV_FIRST_NM, SVC_ST_CD)', 'No action column: TERM comes from the file name', 'Dates as YYYYMMDD, 9-digit ZIPs, tax IDs without a dash', 'A term reason kept as a note'] });
 }
 
@@ -133,6 +138,7 @@ const manifest: { file: string; title: string; format: string; rows: number; sho
 	});
 	writeBook('multi-location.xlsx', [['Provider Locations', [header, ...rows]]]);
 	manifest.push({ file: 'multi-location.xlsx', title: 'Several locations each', format: 'xlsx', rows: rows.length,
+		blurb: 'One row per provider per location, with Y/N flags for primary location, directory and PCP.',
 		shows: ['One row per provider per location', 'Primary location, directory and PCP flags as Y/N', 'The Review graph: providers, locations and billing, and how they connect'] });
 }
 
@@ -143,6 +149,7 @@ const manifest: { file: string; title: string; format: string; rows: number; sho
 	const rows = list.map((o, i) => [o.name, o.npi, tin(o), o.taxonomy ?? '', o.taxonomyName ?? '', o.address.line1, o.address.line2 ?? '', o.address.city, o.address.state, zip5(o.address.zip), phoneDots(o.address.phone), date(2027, 1, 1 + i)]);
 	writeBook('facilities.xls', [['Facilities', [header, ...rows]]], 'biff8');
 	manifest.push({ file: 'facilities.xls', title: 'Facilities (legacy .xls)', format: 'xls', rows: rows.length,
+		blurb: 'Organizations in an Excel 97-2003 file.',
 		shows: ['An Excel 97-2003 file', 'Organizations, not individuals: the category is detected as facility', 'Organization NPIs checked against NPPES'] });
 }
 
@@ -158,6 +165,7 @@ const manifest: { file: string; title: string; format: string; rows: number; sho
 	});
 	writeBook('wide-locations.xlsx', [['Roster', [header, ...rows]]]);
 	manifest.push({ file: 'wide-locations.xlsx', title: 'Wide: locations across a row', format: 'xlsx', rows: rows.length,
+		blurb: 'Two locations on one row, and names as "Last, First": flagged for a transform.',
 		shows: ['Two practice addresses on one row: flagged as needing a transform (not built yet)', 'Names as "Last, First" in one column'] });
 }
 

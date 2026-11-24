@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Demo site: the home page previews each sample roster as sent and as cleaned, with every changed cell highlighted (hover for the original) and left-out rows with their reason, in place of the sample cards. It opens on a random sample
+- Demo rosters: Excel dates are written as day numbers, so the build machine's time zone no longer shifts them a day
 - Demo site (`demo/`, `netlify.toml`): the docs with a sidebar, the UI at `/app/`, and six sample rosters in different shapes (tidy xlsx, hand-edited csv, database extract, several locations each, facilities in .xls, wide) built from a random sample of real NPIs from NPPES, with placeholder tax IDs. `pnpm demo` builds it, `pnpm demo:serve` serves it locally; see demo/README.md
 - `session.samples` (`[{ file, title?, note? }]`): a host lists sample rosters, shown under the drop as "Try a sample"; each opens with `?sample=<file>`
 - `session.home` (a URL): the UI's title links back to the host's site

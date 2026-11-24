@@ -8,13 +8,14 @@
 // in demo/netlify/functions/. `pnpm demo:serve` serves the result locally the same way.
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { Marked, type Tokens } from 'marked';
+import { buildPreviews } from './demo-previews.ts';
 
 const root = new URL('../', import.meta.url);
 const out = new URL('demo/_site/', root);
 const REPO = 'https://github.com/costpluswellness/rostermapper';
 const { version } = JSON.parse(readFileSync(new URL('package.json', root), 'utf8')) as { version: string };
 
-type Sample = { file: string; title: string; format: string; rows: number; shows: string[] };
+type Sample = { file: string; title: string; format: string; rows: number; blurb: string; shows: string[] };
 const samples = JSON.parse(readFileSync(new URL('demo/rosters/manifest.json', root), 'utf8')) as Sample[];
 const { drawn } = JSON.parse(readFileSync(new URL('demo/rosters/npis.json', root), 'utf8')) as { drawn: string };
 
@@ -136,29 +137,44 @@ ${page.body}
 }
 
 // ─── Home ───────────────────────────────────────────────────
-const card = (s: Sample) => `<div class="card">
-    <h3>${esc(s.title)} <span class="fmt">${esc(s.format)}</span></h3>
-    <p class="file">${esc(s.file)} · ${s.rows} rows</p>
-    <ul>${s.shows.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-    <p class="go"><a href="app/?sample=${encodeURIComponent(s.file)}">Open in the app →</a> <a href="rosters/${encodeURIComponent(s.file)}" download>Download</a></p>
-  </div>`;
+// Each sample as sent and as cleaned, for the home page's preview (scripts/demo-previews.ts).
+const previews = await buildPreviews(root, samples.map((s) => s.file));
+const previewData = JSON.stringify(samples.map((s) => ({ file: s.file, title: s.title, format: s.format, blurb: s.blurb, sheets: previews[s.file] ?? [] }))).replace(/</g, '\\u003c');
+
+const PREVIEW_JS = readFileSync(new URL('demo/site/preview.js', root), 'utf8');
 
 const homeBody = `
 <section class="hero">
 <h1>Roster Mapper</h1>
 <p class="lede">Provider rosters come in every shape. Roster Mapper turns any roster file (xlsx, xls or csv) into a clean change file for your provider directory, with a summary of the mapping, every issue, and every row left out and why.</p>
 <div class="actions">
-  <a class="btn primary" href="app/?sample=${encodeURIComponent(samples[0]!.file)}">${icon.play} Try a sample</a>
-  <button class="btn" id="random" type="button">${icon.shuffle} Random sample</button>
+  <a class="btn primary" href="#samples">${icon.play} See it on a sample</a>
   <a class="btn" href="app/">Map your own file</a>
 </div>
 <p class="small muted" style="margin-top:.9rem">Your files are read in your browser and never uploaded. Only NPIs and addresses go out, to NPPES and the US Census geocoder.</p>
 </section>
 
 <h2 id="samples"><a class="anchor" href="#samples">Try a sample</a></h2>
-<p>Six rosters in the shapes senders really send. Open one in the app, or download it and drop it in yourself.</p>
-<div class="cards">
-  ${samples.map(card).join('\n  ')}
+<p>Real rosters arrive messy. Pick one and flip between the file as sent and what Roster Mapper makes of it: every highlighted cell was changed (hover to see what it was), and rows that can't move forward say why.</p>
+<div class="pv" id="pv">
+  <div class="pv-pick" role="tablist" aria-label="Sample rosters">
+    ${samples.map((s, i) => `<button type="button" role="tab" data-i="${i}">${esc(s.title)} <span class="fmt">${esc(s.format)}</span></button>`).join('\n    ')}
+    <button type="button" class="pv-random" id="pv-random" title="A random sample">${icon.shuffle}<span class="sr">Random sample</span></button>
+  </div>
+  <div class="pv-card">
+    <div class="pv-head">
+      <p class="pv-blurb" id="pv-blurb"></p>
+      <p class="pv-links"><a id="pv-open" class="pv-open" href="app/">Open in the app →</a> <a id="pv-download" href="rosters/" download>Download</a></p>
+    </div>
+    <div class="pv-bar">
+      <span class="seg" role="group" aria-label="View"><button type="button" data-view="sent">As sent</button><button type="button" data-view="clean">Cleaned</button></span>
+      <span class="pv-sheets" id="pv-sheets"></span>
+      <span class="pv-stats" id="pv-stats"></span>
+    </div>
+    <p class="pv-note" id="pv-note"></p>
+    <div class="pv-scroll"><table class="pv-table" id="pv-table"></table></div>
+    <p class="pv-foot" id="pv-foot"></p>
+  </div>
 </div>
 <p class="note">The NPIs are real: a random sample drawn from <a href="https://npiregistry.cms.hhs.gov/" target="_blank" rel="noopener">NPPES</a> on ${esc(drawn)}, with each provider's name, credential, taxonomy and practice address as NPPES lists them. Which provider sits under which group is random and says nothing about where anyone works. Every tax ID (<code>99-99xxxxx</code>) is a placeholder.</p>
 
@@ -181,10 +197,8 @@ rostermapper roster.xlsx --steps  # one step at a time
 rostermapper roster.xlsx --ui     # open the app on this machine</code></pre>
 <p>See <a href="docs/usage.html">Usage</a> for every option, the library and embedding the app in your own portal.</p>
 
-<script>
-  const files = ${JSON.stringify(samples.map((s) => s.file))};
-  document.getElementById('random').onclick = () => { location.href = 'app/?sample=' + encodeURIComponent(files[Math.floor(Math.random() * files.length)]); };
-</script>
+<script type="application/json" id="pv-data">${previewData}</script>
+<script>${PREVIEW_JS}</script>
 `;
 
 const pages: Page[] = [

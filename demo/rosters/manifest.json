@@ -4,6 +4,7 @@
 		"title": "Tidy workbook",
 		"format": "xlsx",
 		"rows": 20,
+		"blurb": "Title rows above the header, Adds and Terms tabs, ZIPs that lost their leading zero.",
 		"shows": [
 			"Title rows above the header",
 			"An Adds and a Terms sheet; the action comes from the sheet name",
@@ -17,6 +18,7 @@
 		"title": "Hand-edited CSV",
 		"format": "csv",
 		"rows": 15,
+		"blurb": "Every kind of mess: actions, dates, phones and states written any which way, an NPI typo, a duplicate.",
 		"shows": [
 			"An Action column spelled five ways",
 			"Dates in five formats, phones in four",
@@ -30,6 +32,7 @@
 		"title": "Database extract",
 		"format": "csv",
 		"rows": 10,
+		"blurb": "Database column names, YYYYMMDD dates, and no action column: TERM comes from the file name.",
 		"shows": [
 			"SCREAMING_SNAKE headers (PROV_FIRST_NM, SVC_ST_CD)",
 			"No action column: TERM comes from the file name",
@@ -42,6 +45,7 @@
 		"title": "Several locations each",
 		"format": "xlsx",
 		"rows": 18,
+		"blurb": "One row per provider per location, with Y/N flags for primary location, directory and PCP.",
 		"shows": [
 			"One row per provider per location",
 			"Primary location, directory and PCP flags as Y/N",
@@ -53,6 +57,7 @@
 		"title": "Facilities (legacy .xls)",
 		"format": "xls",
 		"rows": 8,
+		"blurb": "Organizations in an Excel 97-2003 file.",
 		"shows": [
 			"An Excel 97-2003 file",
 			"Organizations, not individuals: the category is detected as facility",
@@ -64,6 +69,7 @@
 		"title": "Wide: locations across a row",
 		"format": "xlsx",
 		"rows": 8,
+		"blurb": "Two locations on one row, and names as \"Last, First\": flagged for a transform.",
 		"shows": [
 			"Two practice addresses on one row: flagged as needing a transform (not built yet)",
 			"Names as \"Last, First\" in one column"
