@@ -28,8 +28,8 @@ cpSync(new URL('demo/site/style.css', root), new URL('style.css', out));
 // ─── The UI's host routes ───────────────────────────────────
 const offer = samples.map(({ file, title, shows }) => ({ file, title, note: shows.join('; ') }));
 mkdirSync(new URL('app/sessions/', out));
-writeFileSync(new URL('app/sessions/index.json', out), JSON.stringify({ samples: offer }));
-for (const s of samples) writeFileSync(new URL(`app/sessions/${s.file}.json`, out), JSON.stringify({ name: s.file, samples: offer }));
+writeFileSync(new URL('app/sessions/index.json', out), JSON.stringify({ home: '../', samples: offer }));
+for (const s of samples) writeFileSync(new URL(`app/sessions/${s.file}.json`, out), JSON.stringify({ name: s.file, home: '../', samples: offer }));
 writeFileSync(new URL('_redirects', out), [
 	'/app/session  sample=:sample  /app/sessions/:sample.json  200!',
 	'/app/session                  /app/sessions/index.json    200!',

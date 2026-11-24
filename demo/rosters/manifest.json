@@ -7,7 +7,7 @@
 		"shows": [
 			"Title rows above the header",
 			"An Adds and a Terms sheet; the action comes from the sheet name",
-			"A Read Me tab to ignore",
+			"A Read Me tab at the end to ignore",
 			"ZIPs stored as numbers, so New England loses its leading zero",
 			"Blank taxonomies and a blank legal name, filled from NPPES"
 		]

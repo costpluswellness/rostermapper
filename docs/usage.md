@@ -120,7 +120,7 @@ A host can also open a roster in the page and take the result back. The page fet
 
 | Route | Answer | What the page does |
 | --- | --- | --- |
-| `GET session` | JSON: `Session` in `src/cli/server.ts` (`name`, `sheet`, `action`, `inputs`, `send`, `samples`, …), or `{}` | With `name`, opens that roster; without, starts at Upload. `samples` (`[{ file, title?, note? }]`) lists rosters under the drop, each opening `?sample=<file>` |
+| `GET session` | JSON: `Session` in `src/cli/server.ts` (`name`, `sheet`, `action`, `inputs`, `send`, `samples`, `home`, …), or `{}` | With `name`, opens that roster; without, starts at Upload. `samples` (`[{ file, title?, note? }]`) lists rosters under the drop, each opening `?sample=<file>`; `home` (a URL) makes the title a link back to the host's site |
 | `GET file` | The roster's bytes (xlsx, xls or csv), or the sheets already read (JSON, as the CLI sends) | Reads bytes like an upload, removing SSNs as it reads |
 | `GET mapping` | A mapping file's bytes, when `session.mappingName` is set | Applies the overrides |
 | `POST send` | JSON: `{ message?, open? }`, or an error status with `{ error }` | Shown when `session.send` is `{ label }`: a button with that label next to Download |
