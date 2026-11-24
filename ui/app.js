@@ -114,6 +114,13 @@ async function boot() {
   for (const [f, list] of Object.entries(session.allowed ?? {})) for (const v of list) (state.allowed.get(f) ?? state.allowed.set(f, new Set()).get(f)).add(v);
   // --no-nppes / --no-census win for this session; the boxes still change them (and save).
   for (const kind of ['nppes', 'census']) if (session[kind] === false) { state.sources[kind] = false; $(`use-${kind}`).checked = false; }
+  // A host's own site: the title links back to it.
+  if (session.home) {
+    $('home').href = session.home;
+    $('home').title = 'Back to the site';
+    $('home').append($('title-text'));
+    $('home').hidden = false;
+  }
   // A host's sample rosters: links that open each one (the host answers file?sample=… with it).
   if (session.samples?.length) {
     $('samples').hidden = false;

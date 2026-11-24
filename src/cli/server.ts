@@ -37,6 +37,8 @@ export interface Session {
 	/** Sample rosters a host offers under the drop: each links to `?sample=<file>`, which the host's `file`
 	 *  route answers with that roster (the public demo does). The CLI never sets it. */
 	samples?: { file: string; title?: string; note?: string }[] | undefined;
+	/** A host's own site: the "Roster Mapper" title links to this URL (the public demo's home page). */
+	home?: string | undefined;
 }
 
 const TYPES: Record<string, string> = {

@@ -69,12 +69,12 @@ const manifest: { file: string; title: string; format: string; rows: number; sho
 	const terms = slice(4).map((p, i) => row(p, groups[i % 3]!, date(2026, 12, 31)));
 	const top = (what: string) => [['Provider roster: ' + what], ['Prepared for the network, November 2026'], []];
 	writeBook('tidy-workbook.xlsx', [
-		['Read Me', [['About this roster'], [], ['Adds: providers joining on January 1, 2027.'], ['Terms: providers leaving on December 31, 2026.'], ['Questions: reply to the sender.']]],
 		['Adds', [...top('additions'), header, ...adds]],
 		['Terms', [...top('terminations'), header, ...terms]],
+		['Read Me', [['About this roster'], [], ['Adds: providers joining on January 1, 2027.'], ['Terms: providers leaving on December 31, 2026.'], ['Questions: reply to the sender.']]],
 	]);
 	manifest.push({ file: 'tidy-workbook.xlsx', title: 'Tidy workbook', format: 'xlsx', rows: adds.length + terms.length,
-		shows: ['Title rows above the header', 'An Adds and a Terms sheet; the action comes from the sheet name', 'A Read Me tab to ignore', 'ZIPs stored as numbers, so New England loses its leading zero', 'Blank taxonomies and a blank legal name, filled from NPPES'] });
+		shows: ['Title rows above the header', 'An Adds and a Terms sheet; the action comes from the sheet name', 'A Read Me tab at the end to ignore', 'ZIPs stored as numbers, so New England loses its leading zero', 'Blank taxonomies and a blank legal name, filled from NPPES'] });
 }
 
 // ─── 2. A hand-edited CSV: an action column and every kind of mess ─────

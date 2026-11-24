@@ -129,10 +129,3 @@ The file fields are set once per sheet and written into every record:
 | `file.sheet` | Sheet name |
 | `file.action` | `adds`, `terms`, `update` or `mixed` (rows with different actions): set by the user, otherwise detected |
 | `file.category` | `individual` or `facility`: set with `--category`, else `facility` when the sheet or file name says so, else `individual` when a column holds the provider's NPI, name, birth date or gender, else `facility` when only a practice or billing organization is named |
-
-## Not built yet
-
-- [ ] The [Transform](#transform-not-built-yet) step
-- [ ] Validate addresses with USPS (needs an API key; the Census geocoder is used for now)
-- [ ] Decision models: derive a required field from another column (an effective date in a notes column)
-- [ ] Keep UI edits and accepted suggestions across a refresh

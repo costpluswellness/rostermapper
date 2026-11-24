@@ -48,6 +48,8 @@
 /* Header */
 .rm-top { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--rule); }
 .rm-title { font-size: 1.1em; }
+.rm-title a { color: inherit; text-decoration: none; }
+.rm-title a:hover { color: var(--accent); }
 .rm-top-right { margin-left: auto; display: flex; align-items: center; gap: 1rem; }
 .rm-top .view-switch { margin: 0; }
 

@@ -4,6 +4,8 @@
 
 - Demo site (`demo/`, `netlify.toml`): the docs with a sidebar, the UI at `/app/`, and six sample rosters in different shapes (tidy xlsx, hand-edited csv, database extract, several locations each, facilities in .xls, wide) built from a random sample of real NPIs from NPPES, with placeholder tax IDs. `pnpm demo` builds it, `pnpm demo:serve` serves it locally; see demo/README.md
 - `session.samples` (`[{ file, title?, note? }]`): a host lists sample rosters, shown under the drop as "Try a sample"; each opens with `?sample=<file>`
+- `session.home` (a URL): the UI's title links back to the host's site
+- docs/steps.md: the "Not built yet" checklist is gone
 - `answerLookup` in `src/validate/lookup.ts` answers the UI's lookup routes for any host (the CLI's server and the demo's function)
 
 ## 1.0.0-beta.1
