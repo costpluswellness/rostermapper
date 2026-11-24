@@ -55,6 +55,10 @@
 		"schema": "node scripts/build-schema.ts",
 		"schema:check": "node scripts/build-schema.ts --check",
 		"nucc": "node scripts/build-nucc.ts",
+		"demo:sample": "node scripts/sample-npis.ts",
+		"demo:rosters": "node scripts/build-demo-rosters.ts",
+		"demo": "pnpm build && node scripts/build-demo-site.ts",
+		"demo:serve": "tsx scripts/serve-demo.ts",
 		"check": "pnpm schema:check && pnpm typecheck && pnpm test && pnpm build",
 		"prepublishOnly": "pnpm check"
 	},
@@ -67,6 +71,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^22.20.5",
+		"marked": "^18.3.0",
 		"tsup": "^9.0.0",
 		"tsx": "^4.23.15",
 		"typescript": "^5.9.3",
