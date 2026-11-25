@@ -30,7 +30,7 @@ a:hover { text-decoration-color: var(--accent); }
 .side nav a { display: block; color: var(--muted); text-decoration: none; padding: 2px 0; }
 .side nav a:hover { color: var(--strong); }
 .side nav a.page { color: var(--text); margin-top: 6px; }
-.side nav a.page[aria-current] { color: var(--accent); }
+.side nav a.page.active { color: var(--accent); }
 .side nav .sub { padding-left: 12px; }
 .side nav .sub a { font-size: 13px; }
 .side nav .sub a.active { color: var(--strong); }

@@ -35,6 +35,7 @@ That writes `output/RM_roster_<sheet>.xlsx`. Pass a folder to map every roster i
 
 - [Usage](docs/usage.md): command line, UI, library (`rostermapper`, `rostermapper/workbook`, `rostermapper/node`), embedding the UI
 - [Processing steps](docs/steps.md): what each step does, which rows are left out and why, the output files
+- [Data sources](docs/data_sources.md): NPPES, the US Census geocoder and NUCC, and how each is used
 - [Canonical fields](docs/canonical_fields.md): the schema every roster is mapped to
 - [Contributing](CONTRIBUTING.md): development setup, project layout, schema changes
 

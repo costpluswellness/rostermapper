@@ -1,6 +1,6 @@
 # Demo site
 
-The public demo: the docs with a sidebar, the UI at `/app/`, and sample rosters. The home page plays a few rows of `hand-edited.csv` from as sent, to cleaned, to the providers, locations and billing entities they describe; every sample can also be previewed cell by cell or opened in the app in one click. Hosted on Netlify (`netlify.toml` at the repo root).
+The public demo: one page (the home sections, then `docs/*.md` inlined, with a sidebar), the UI at `/app/`, and sample rosters. The home page plays a few rows of `hand-edited.csv` from as sent, to cleaned, to the providers, locations and billing entities they describe; every sample can also be previewed cell by cell or opened in the app in one click. Hosted on Netlify (`netlify.toml` at the repo root).
 
 ```bash
 pnpm demo          # builds the library and UI, then the site into demo/_site/
@@ -10,7 +10,7 @@ pnpm demo:serve    # serves demo/_site/ on http://localhost:8787, as Netlify wou
 | Path | What it is |
 | --- | --- |
 | `rosters/` | The sample rosters, `npis.json` (the NPPES sample they're built from) and `manifest.json` (what each one shows, for the site's cards) |
-| `site/style.css` | The site's look; the pages are written by `scripts/build-demo-site.ts` from `docs/*.md` |
+| `site/style.css` | The site's look; the page is written by `scripts/build-demo-site.ts` |
 | `site/story.js` | The home page's animation: as sent → cleaned → network. Its data comes from `buildStory` in `scripts/demo-previews.ts`: the library's own cleaning and `groupEntities`, at build time |
 | `site/preview.js` | The home page's sample preview. Its data, each sample as sent and as cleaned, comes from `scripts/demo-previews.ts`, which runs the built library on each sample at build time (no lookups: the app adds those) |
 | `netlify/functions/lookup.mts` | `app/api/nppes`, `app/api/census` and `app/api/nppes-name`, through `answerLookup` (NPPES and the Census geocoder have no CORS) |
