@@ -14,7 +14,7 @@ const out = new URL('demo/_site/', root);
 const REPO = 'https://github.com/costpluswellness/rostermapper';
 const { version } = JSON.parse(readFileSync(new URL('package.json', root), 'utf8')) as { version: string };
 
-type Sample = { file: string; title: string; format: string; rows: number; blurb: string; shows: string[] };
+type Sample = { file: string; title: string; format: string; rows: number; shows: string[] };
 const samples = JSON.parse(readFileSync(new URL('demo/rosters/manifest.json', root), 'utf8')) as Sample[];
 
 rmSync(out, { recursive: true, force: true });
@@ -33,6 +33,11 @@ writeFileSync(new URL('_redirects', out), [
 	'/app/session  sample=:sample  /app/sessions/:sample.json  200!',
 	'/app/session                  /app/sessions/index.json    200!',
 	'/app/file     sample=:sample  /rosters/:sample            200!',
+	// The docs were pages of their own before the site became one page.
+	'/docs/usage.html   /#usage             301',
+	'/docs/steps.html   /#processing-steps  301',
+	'/docs/fields.html  /#schema            301',
+	'/docs/*            /                   301',
 	'',
 ].join('\n'));
 

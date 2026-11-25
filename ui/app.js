@@ -67,7 +67,7 @@ export function go(step) {
   // Lookups run the first time a sheet opens (answers the run already got are reused); "Run checks" repeats them.
   if (step === 'review' && !state.checked) { state.checked = true; runChecks(); }
 }
-$('rail-new').onclick = (e) => { e.preventDefault(); remember(); closeFile(); go('upload'); };
+$('rail-new').onclick = (e) => { e.preventDefault(); remember(); state.opening = null; closeFile(); go('upload'); };
 
 // ─── Mapping and Raw data: dialogs over the file's page ─────
 // The page behind recalculates with every change made in them.
@@ -139,7 +139,7 @@ async function boot() {
   const sheets = /json/.test(res.headers.get('content-type') ?? '') ? JSON.parse(await res.text(), revive) : readWorkbook(await res.arrayBuffer());
   state.files = [{ name: session.name, read: async () => sheets, status: 'waiting' }];
   // One file from the command line: run it, then open it at the sheet and header row it was given.
-  await runFiles({ sheet: session.sheet, headerRow: session.headerRow });
+  await runFiles({ open: true, sheet: session.sheet, headerRow: session.headerRow });
 }
 boot().catch((e) => { document.querySelector('.rm-main').insertAdjacentHTML('afterbegin', `<p class="rm-note">Could not start: ${esc(e.message)}. Is the CLI still running?</p>`); });
 
@@ -344,7 +344,7 @@ function addFiles(list) {
     return;
   }
   state.files = files.map((f) => ({ name: f.name, read: async () => readWorkbook(await f.arrayBuffer()), status: 'waiting' }));
-  runFiles();
+  runFiles({ open: true });
 }
 
 // No file open (Results shows them all; New run starts another).
@@ -375,19 +375,36 @@ export async function openFile(i, sheet, headerRow) {
 
 // Every step on every file, one file at a time, as the CLI's run does (runSheets: lookups 4 at a time,
 // trusted fixes applied, NPPES's verdicts as issues). A newer run stops an older one.
-// The first file to finish opens at Review (at `sheet` and `headerRow` when given); the rest keep
-// running behind it and wait in the rail. Nothing opens if the user opened a file meanwhile.
-export async function runFiles({ sheet, headerRow } = {}) {
+// From a drop (`open`), the run waits on New run and the first file to finish opens at Review (at
+// `sheet` and `headerRow` when given); the rest keep running behind it and wait in the rail. Once one
+// has opened, or the user has moved on (opened a file, Results, New run), nothing else opens.
+// Without `open` (Run again on Results) the run shows on Results.
+export async function runFiles({ open = false, sheet, headerRow } = {}) {
   const token = (state.runToken = {});
   for (const f of state.files) Object.assign(f, { status: 'waiting', results: undefined, error: undefined });
   sheetMemo.clear(); // a new run starts every sheet afresh
   closeFile();
-  $('drop-title').textContent = `Reading ${state.files[0].name}…`;
-  $('drop-hint').textContent = state.files.length > 1 ? `and ${state.files.length - 1} more` : '';
+  if (!open) {
+    go('results');
+    return runAll(token);
+  }
+  state.opening = token;
   go('upload');
+  return runAll(token, sheet, headerRow);
+}
+
+// Waiting for this run's first file to open: still on New run, and the user hasn't left it since.
+const waiting = (token) => state.opening === token && state.current === -1 && state.step === 'upload';
+
+async function runAll(token, sheet, headerRow) {
   for (const [i, f] of state.files.entries()) {
     if (state.runToken !== token) return;
     f.status = 'running';
+    if (waiting(token)) {
+      const left = state.files.length - i - 1;
+      $('drop-title').textContent = `Reading ${f.name}…`;
+      $('drop-hint').textContent = left ? `then ${left} more` : '';
+    }
     render();
     try {
       const results = (await runSheets(f.name, await f.read(), {
@@ -403,11 +420,13 @@ export async function runFiles({ sheet, headerRow } = {}) {
     }
     if (state.runToken !== token) return;
     state.progress = '';
-    if (f.status === 'done' && state.current === -1 && state.step === 'upload') await openFile(i, sheet, headerRow);
-    else render();
+    if (f.status === 'done' && waiting(token)) {
+      state.opening = null;
+      await openFile(i, sheet, headerRow);
+    } else render();
   }
   // Every file failed: say so where the drop was.
-  if (state.current === -1 && state.step === 'upload' && state.files.every((f) => f.status === 'error')) {
+  if (waiting(token) && state.files.every((f) => f.status === 'error')) {
     $('drop-title').textContent = state.files.length > 1 ? 'None of these files could be read' : `Can't read ${state.files[0].name}`;
     $('drop-hint').textContent = state.files.length > 1 ? 'Click one in the list for why' : state.files[0].error;
   }

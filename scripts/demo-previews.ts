@@ -1,5 +1,5 @@
-// The data for the demo site's home page story: a few rows of a sample roster as sent and as Roster
-// Mapper cleans them, and the network they describe. Runs the built library (dist/, so `pnpm build`
+// The data for the demo site's home page story: a few rows of a sample roster as sent, and the
+// network they describe. Runs the built library (dist/, so `pnpm build`
 // first) without lookups: what shows is mapping and standardizing; the app adds the NPPES and Census
 // checks.
 import { readFileSync } from 'node:fs';
@@ -18,13 +18,14 @@ function asSent(bytes: Buffer, file: string): Map<string, string[][]> {
 	return new Map(wb.SheetNames.map((n) => [n, xlsx.utils.sheet_to_json<unknown[]>(wb.Sheets[n]!, { header: 1, raw: false, defval: '', blankrows: true }).map((r) => r.map(text))]));
 }
 
-// ─── The home page's story: a few messy rows → cleaned → providers, locations and billing ───
+// ─── The home page's story: a few messy rows → providers, locations and billing ───
 type Entity = { values: Record<string, string>; rows: number[] };
 type Entities = { providers: Entity[]; locations: Entity[]; billing: Entity[]; providerLocations: [number, number][]; locationBilling: [number, number][] };
 export type Story = {
 	file: string;
 	headers: string[];
-	rows: { n: number; raw: string[]; clean: string[]; changed: number[]; drop?: string }[];
+	/** Each row as sent, and which of its cells Roster Mapper changes. */
+	rows: { n: number; raw: string[]; changed: number[] }[];
 	graph: { providers: Node[]; locations: Node[]; billing: Node[]; links: [string, string][] };
 };
 type Node = { id: string; title: string; sub: string; rows: number[] };
@@ -62,9 +63,8 @@ export async function buildStory(root: URL, file: string): Promise<Story> {
 	const rows = chosen.map((rec) => {
 		const cells = raw[rec.row - 1] ?? [];
 		const rawCells = cols.map((c) => (c >= 0 ? cells[c] ?? '' : ''));
-		const clean = STORY_FIELDS.map((f) => text(rec.values[f]));
-		const drop = rec.issues.find((i) => i.drop)?.message;
-		return { n: rec.row, raw: rawCells, clean, changed: clean.flatMap((v, i) => (v !== rawCells[i] ? [i] : [])), ...(drop && { drop }) };
+		const changed = STORY_FIELDS.flatMap((f, i) => (text(rec.values[f]) !== rawCells[i] ? [i] : []));
+		return { n: rec.row, raw: rawCells, changed };
 	});
 	const g = lib.groupEntities(chosen.filter((x) => !x.issues.some((i) => i.drop)));
 	const v = (e: Entity, f: string) => e.values[f] ?? '';
