@@ -7,7 +7,7 @@
 // in demo/netlify/functions/. `pnpm demo:serve` serves the result locally the same way.
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { Marked, type Tokens } from 'marked';
-import { buildPreviews, buildStory } from './demo-previews.ts';
+import { buildStory } from './demo-previews.ts';
 
 const root = new URL('../', import.meta.url);
 const out = new URL('demo/_site/', root);
@@ -16,7 +16,6 @@ const { version } = JSON.parse(readFileSync(new URL('package.json', root), 'utf8
 
 type Sample = { file: string; title: string; format: string; rows: number; blurb: string; shows: string[] };
 const samples = JSON.parse(readFileSync(new URL('demo/rosters/manifest.json', root), 'utf8')) as Sample[];
-const { drawn } = JSON.parse(readFileSync(new URL('demo/rosters/npis.json', root), 'utf8')) as { drawn: string };
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
@@ -52,7 +51,7 @@ const DOCS = [
 	{ md: 'canonical_fields.md', title: 'Schema' },
 ];
 const sectionId = new Map(DOCS.map((d) => [d.md, slug(d.title)]));
-const ids = new Set(['story', 'samples', 'how-it-works']);
+const ids = new Set(['story', 'how-it-works']);
 const claim = (id: string) => { if (ids.has(id)) throw new Error(`Two headings on the page share the id "${id}"`); ids.add(id); return id; };
 
 // The schema on the site: no per-action levels (the last three columns) and no generated-file note.
@@ -162,7 +161,7 @@ function shell(sections: Section[], body: string): string {
 <main id="top">
 <article class="doc">
 ${body}
-<footer class="foot">Roster Mapper ${esc(version)} · MIT · <a href="${REPO}" target="_blank" rel="noopener">Source on GitHub</a></footer>
+<footer class="foot">Roster Mapper ${esc(version)} · MIT · <a href="${REPO}" target="_blank" rel="noopener">Source on GitHub</a> · Made by the team at <a href="https://costpluswellness.com" target="_blank" rel="noopener">Cost Plus Wellness</a></footer>
 </article>
 </main>
 <script>
@@ -179,11 +178,6 @@ ${body}
 }
 
 // ─── Home ───────────────────────────────────────────────────
-// Each sample as sent and as cleaned, for the home page's preview (scripts/demo-previews.ts).
-const previews = await buildPreviews(root, samples.map((s) => s.file));
-const previewData = JSON.stringify(samples.map((s) => ({ file: s.file, title: s.title, format: s.format, blurb: s.blurb, sheets: previews[s.file] ?? [] }))).replace(/</g, '\\u003c');
-
-const PREVIEW_JS = readFileSync(new URL('demo/site/preview.js', root), 'utf8');
 // The story under the hero: a few rows of the messiest sample, cleaned, then as a network.
 const STORY_FILE = 'hand-edited.csv';
 const storyData = JSON.stringify(await buildStory(root, STORY_FILE)).replace(/</g, '\\u003c');
@@ -194,22 +188,18 @@ const homeBody = `
 <h1>Roster Mapper</h1>
 <p class="lede">Provider rosters come in different shapes and formats. Roster Mapper maps any roster file to a <a href="#schema">canonical schema</a>, standardizes values against public sources, and produces a clean change file for your roster directory.</p>
 <div class="actions">
-  <a class="btn primary" href="app/?sample=${encodeURIComponent(STORY_FILE)}">${icon.play} Try it on a sample</a>
-  <a class="btn" href="app/">Map your own file</a>
+  <a class="btn primary" href="app/">${icon.play} Open the app</a>
 </div>
-<p class="small muted" style="margin-top:.9rem">Your files are read in your browser and never uploaded. Only NPIs and addresses go out, to NPPES and the US Census geocoder.</p>
 </section>
 
 <section class="story" id="story" data-stage="0" aria-label="From a messy roster to a network">
   <div class="story-bar">
     <span class="story-steps" role="group" aria-label="Steps">
-      <button type="button" data-stage-btn="0"><b>1</b> As sent</button>
-      <button type="button" data-stage-btn="1"><b>2</b> Cleaned</button>
-      <button type="button" data-stage-btn="2"><b>3</b> Network</button>
+      <button type="button" data-stage-btn="0"><b>1</b> Before</button>
+      <button type="button" data-stage-btn="1"><b>2</b> After</button>
     </span>
     <button type="button" class="story-play" id="story-play" aria-label="Pause">❚❚</button>
   </div>
-  <p class="story-cap" id="story-cap" aria-live="polite"></p>
   <div class="story-stage">
     <div class="story-table"><table id="story-table"></table></div>
     <div class="story-graph"><svg id="story-graph" role="img" aria-label="Providers, practice locations and billing entities, linked"></svg></div>
@@ -217,33 +207,6 @@ const homeBody = `
 </section>
 <script type="application/json" id="story-data">${storyData}</script>
 <script>${STORY_JS}</script>
-
-<h2 id="samples"><a class="anchor" href="#samples">Try a sample</a></h2>
-<p>Open one in the app: ${samples.map((s) => `<a href="app/?sample=${encodeURIComponent(s.file)}">${esc(s.title)}</a>`).join(' · ')}. Or download them and drop them in yourself.</p>
-<details class="pv-more">
-<summary>Explore every sample, cell by cell</summary>
-<div class="pv" id="pv">
-  <div class="pv-pick" role="tablist" aria-label="Sample rosters">
-    ${samples.map((s, i) => `<button type="button" role="tab" data-i="${i}">${esc(s.title)} <span class="fmt">${esc(s.format)}</span></button>`).join('\n    ')}
-    <button type="button" class="pv-random" id="pv-random" title="A random sample">${icon.shuffle}<span class="sr">Random sample</span></button>
-  </div>
-  <div class="pv-card">
-    <div class="pv-head">
-      <p class="pv-blurb" id="pv-blurb"></p>
-      <p class="pv-links"><a id="pv-open" class="pv-open" href="app/">Open in the app →</a> <a id="pv-download" href="rosters/" download>Download</a></p>
-    </div>
-    <div class="pv-bar">
-      <span class="seg" role="group" aria-label="View"><button type="button" data-view="sent">As sent</button><button type="button" data-view="clean">Cleaned</button></span>
-      <span class="pv-sheets" id="pv-sheets"></span>
-      <span class="pv-stats" id="pv-stats"></span>
-    </div>
-    <p class="pv-note" id="pv-note"></p>
-    <div class="pv-scroll"><table class="pv-table" id="pv-table"></table></div>
-    <p class="pv-foot" id="pv-foot"></p>
-  </div>
-</div>
-</details>
-<p class="note">The NPIs are real: a random sample drawn from <a href="https://npiregistry.cms.hhs.gov/" target="_blank" rel="noopener">NPPES</a> on ${esc(drawn)}, with each provider's name, credential, taxonomy and practice address as NPPES lists them. Which provider sits under which group is random and says nothing about where anyone works. Every tax ID (<code>99-99xxxxx</code>) is a placeholder.</p>
 
 <h2 id="how-it-works"><a class="anchor" href="#how-it-works">How it works</a></h2>
 <ol class="steps">
@@ -256,8 +219,6 @@ const homeBody = `
 </ol>
 <p>Each step is described in <a href="#processing-steps">Processing steps</a>.</p>
 
-<script type="application/json" id="pv-data">${previewData}</script>
-<script>${PREVIEW_JS}</script>
 `;
 
 const docs = DOCS.map((d) => {
@@ -265,7 +226,7 @@ const docs = DOCS.map((d) => {
 	return renderDoc(d.md === 'canonical_fields.md' ? siteSchema(md) : md, d.title);
 });
 const sections: Section[] = [
-	{ id: 'top', title: 'Introduction', heads: [{ id: 'samples', text: 'Try a sample' }, { id: 'how-it-works', text: 'How it works' }], body: homeBody },
+	{ id: 'top', title: 'Introduction', heads: [{ id: 'how-it-works', text: 'How it works' }], body: homeBody },
 	...docs,
 ];
 writeFileSync(new URL('index.html', out), shell(sections, linkSources(sections.map((p) => p.body).join('\n'))));

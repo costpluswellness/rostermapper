@@ -1,22 +1,18 @@
-// The home page's story: a few rows of a messy roster as sent, the same rows cleaned, then the
+// The home page's story: a few rows of a messy roster as sent (before), then the
 // providers, practice locations and billing entities they describe, linked. The data comes from
 // scripts/demo-previews.ts (buildStory) at build time: the library's own cleaning and grouping.
 (() => {
   const story = JSON.parse(document.getElementById('story-data').textContent);
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
   const cut = (s, n) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s);
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const root = $('story');
   const g = story.graph;
 
-  // ─── Table: as sent and cleaned are one table; the stage class decides what shows ───
-  $('story-table').innerHTML = `<thead><tr><th class="n"></th><th class="st"></th>${story.headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>` +
-    story.rows.map((r) => `<tr class="${r.drop ? 'drop' : ''}"${r.drop ? ` title="Left out: ${esc(r.drop)}"` : ''}><th class="n">${r.n}</th><td class="st">${r.drop ? '✕' : '✓'}</td>${r.raw.map((v, i) => {
-      const changed = r.changed.includes(i);
-      return `<td class="${changed ? 'c' : ''}"${changed ? ` title="was: ${esc(v || '(blank)')}"` : ''}><span class="raw">${esc(v)}</span>${changed ? `<span class="clean">${esc(r.clean[i])}</span>` : ''}</td>`;
-    }).join('')}</tr>`).join('') + '</tbody>';
+  // ─── Table: the rows as sent, with the values Roster Mapper changes underlined ───
+  $('story-table').innerHTML = `<thead><tr><th class="n"></th>${story.headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>` +
+    story.rows.map((r) => `<tr><th class="n">${r.n}</th>${r.raw.map((v, i) => `<td class="${r.changed.includes(i) ? 'c' : ''}">${esc(v)}</td>`).join('')}</tr>`).join('') + '</tbody>';
 
   // ─── Graph: three columns, linked left to right ───
   const W = 720, NW = 210, NH = 58, GAP = 14, X = [0, 255, 510];
@@ -60,36 +56,22 @@
       svg.classList.add('focus');
       svg.querySelectorAll('.node').forEach((n) => n.classList.toggle('hl', on.has(n.dataset.id)));
       svg.querySelectorAll('.link').forEach((l) => l.classList.toggle('hl', on.has(l.dataset.a) && on.has(l.dataset.b)));
-      const rows = new Set(g.providers.concat(g.locations, g.billing).find((n) => n.id === el.dataset.id).rows);
-      $('story-cap').innerHTML = `${esc(el.querySelector('.t').textContent)}: from ${rows.size > 1 ? 'rows' : 'row'} ${[...rows].join(rows.size > 2 ? ', ' : ' and ')} of the file.`;
     };
-    el.onmouseleave = () => { svg.classList.remove('focus'); svg.querySelectorAll('.hl').forEach((n) => n.classList.remove('hl')); caption(); };
+    el.onmouseleave = () => { svg.classList.remove('focus'); svg.querySelectorAll('.hl').forEach((n) => n.classList.remove('hl')); };
   });
 
   // ─── Stages ───
-  const changed = story.rows.reduce((n, r) => n + r.changed.length, 0);
-  const dropped = story.rows.filter((r) => r.drop);
-  const shared = g.locations.map((l) => ({ l, ps: g.links.filter(([, b]) => b === l.id).map(([a]) => g.providers.find((p) => p.id === a)?.title.split(',')[0]) }))
-    .find((x) => x.ps.length > 1);
-  const CAPS = [
-    () => `<b>As sent.</b> ${plural(story.rows.length, 'row')} of <code>${esc(story.file)}</code>: the same providers written different ways, with states, phones and dates all over the place.`,
-    () => `<b>Cleaned.</b> ${plural(changed, 'value')} standardized.` + (dropped.length ? ` ${plural(dropped.length, 'row')} left out: ${esc(dropped[0].drop)}.` : ''),
-    () => `<b>Network.</b> ${plural(g.providers.length, 'provider')}, ${plural(g.locations.length, 'practice location')} and ${plural(g.billing.length, 'billing entity', 'billing entities')}` +
-      (shared ? `. ${esc(shared.ps.join(' and '))} both work at ${esc(cut(shared.l.title, 40))}, ${esc(shared.l.sub.replace(/ \d{5}$/, ''))}.` : '.') + ' Hover a card to trace it.',
-  ];
   let stage = 0;
-  const caption = () => ($('story-cap').innerHTML = CAPS[stage]());
   function show(s) {
     stage = s;
     root.dataset.stage = String(s);
     root.querySelectorAll('[data-stage-btn]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.stageBtn === s)));
-    caption();
   }
 
   // Plays on its own once in view; a click on a step takes over. Reduced motion: the network, still.
-  const DWELL = [3800, 3800, 7000];
+  const DWELL = [1800, 9000];
   let timer = null, playing = !still, visible = false;
-  const tick = () => { clearTimeout(timer); if (playing && visible) timer = setTimeout(() => { show((stage + 1) % 3); tick(); }, DWELL[stage]); };
+  const tick = () => { clearTimeout(timer); if (playing && visible) timer = setTimeout(() => { show((stage + 1) % 2); tick(); }, DWELL[stage]); };
   const setPlaying = (on) => {
     playing = on;
     $('story-play').setAttribute('aria-label', on ? 'Pause' : 'Play');
@@ -99,6 +81,6 @@
   root.querySelectorAll('[data-stage-btn]').forEach((b) => (b.onclick = () => { setPlaying(false); show(+b.dataset.stageBtn); }));
   $('story-play').onclick = () => setPlaying(!playing);
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; tick(); }, { threshold: 0.4 }).observe(root);
-  show(still ? 2 : 0);
+  show(still ? 1 : 0);
   setPlaying(playing);
 })();
