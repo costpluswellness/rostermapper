@@ -1,6 +1,7 @@
 // Roster Mapper's UI, served by the CLI (rostermapper --ui [roster.xlsx]). A workbench: the rail on the
-// left lists the files; the main pane shows New run (files and options), Results (what the run did to
-// every file) or one file's Review; the status bar at the bottom shows progress.
+// left lists the files; the main pane shows New run (files and options), one file's Review, or Results
+// (what the run did to every file, from the rail); the status bar at the bottom shows progress.
+// Dropped files open straight at Review: the first one, while the rest run and wait in the rail.
 //
 // Every file runs through every step, as `rostermapper <files>` does (runSheets). A file opens at Review,
 // its one page: its sheets along the top, its providers, locations and billing as a graph or table with
@@ -136,9 +137,8 @@ async function boot() {
   if (!res.ok) throw new Error(`the roster (${res.status})`);
   const sheets = /json/.test(res.headers.get('content-type') ?? '') ? JSON.parse(await res.text(), revive) : readWorkbook(await res.arrayBuffer());
   state.files = [{ name: session.name, read: async () => sheets, status: 'waiting' }];
-  // One file from the command line: run it, then open it.
-  await runFiles();
-  if (state.files[0]?.status === 'done') openFile(0, session.sheet, session.headerRow);
+  // One file from the command line: run it, then open it at the sheet and header row it was given.
+  await runFiles({ sheet: session.sheet, headerRow: session.headerRow });
 }
 boot().catch((e) => { document.querySelector('.rm-main').insertAdjacentHTML('afterbegin', `<p class="rm-note">Could not start: ${esc(e.message)}. Is the CLI still running?</p>`); });
 
@@ -340,13 +340,17 @@ export async function openFile(i, sheet, headerRow) {
 
 // Every step on every file, one file at a time, as the CLI's run does (runSheets: lookups 4 at a time,
 // trusted fixes applied, NPPES's verdicts as issues). A newer run stops an older one.
-export async function runFiles() {
+// The first file to finish opens at Review (at `sheet` and `headerRow` when given); the rest keep
+// running behind it and wait in the rail. Nothing opens if the user opened a file meanwhile.
+export async function runFiles({ sheet, headerRow } = {}) {
   const token = (state.runToken = {});
   for (const f of state.files) Object.assign(f, { status: 'waiting', results: undefined, error: undefined });
   sheetMemo.clear(); // a new run starts every sheet afresh
   closeFile();
-  go('results');
-  for (const f of state.files) {
+  $('drop-title').textContent = `Reading ${state.files[0].name}…`;
+  $('drop-hint').textContent = state.files.length > 1 ? `and ${state.files.length - 1} more` : '';
+  go('upload');
+  for (const [i, f] of state.files.entries()) {
     if (state.runToken !== token) return;
     f.status = 'running';
     render();
@@ -364,6 +368,12 @@ export async function runFiles() {
     }
     if (state.runToken !== token) return;
     state.progress = '';
-    render();
+    if (f.status === 'done' && state.current === -1 && state.step === 'upload') await openFile(i, sheet, headerRow);
+    else render();
+  }
+  // Every file failed: say so where the drop was.
+  if (state.current === -1 && state.step === 'upload' && state.files.every((f) => f.status === 'error')) {
+    $('drop-title').textContent = state.files.length > 1 ? 'None of these files could be read' : `Can't read ${state.files[0].name}`;
+    $('drop-hint').textContent = state.files.length > 1 ? 'Click one in the list for why' : state.files[0].error;
   }
 }
