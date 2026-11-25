@@ -122,11 +122,12 @@ async function boot() {
     $('home').append($('title-text'));
     $('home').hidden = false;
   }
-  // A host's sample rosters: links that open each one (the host answers file?sample=… with it).
+  // A host's sample rosters: cards to drag onto the drop zone (the host answers file?sample=… with each).
   if (session.samples?.length) {
     $('samples').hidden = false;
-    $('samples').innerHTML = 'Try a sample: ' + session.samples.map((s) =>
-      `<a href="?sample=${encodeURIComponent(s.file)}" title="${esc(s.note ?? s.file)}">${esc(s.title ?? s.file)}</a>`).join(' · ');
+    $('sample-cards').innerHTML = session.samples.map((s) =>
+      `<div class="sample-card" draggable="true" tabindex="0" data-sample="${esc(s.file)}" title="${esc((s.note ?? s.file).replace(/; /g, '\n'))}">` +
+      `<span class="sample-ext">${esc(s.file.split('.').pop())}</span><b>${esc(s.title ?? s.file)}</b><small>${esc(s.file)}</small></div>`).join('');
   }
   if (session.mappingName) loadMapping(session.mappingName, await (await fetch(host('mapping'))).arrayBuffer());
   if (!session.name) return go('upload');
@@ -151,7 +152,41 @@ drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = async (e) => {
   e.preventDefault();
   drop.classList.remove('over');
-  addFiles(await droppedFiles(e.dataTransfer));
+  const sample = e.dataTransfer.getData(SAMPLE_TYPE);
+  if (sample) addSample(sample);
+  else addFiles(await droppedFiles(e.dataTransfer));
+};
+
+// Sample cards: dragged onto the drop zone, they run as if the file itself was dropped. Enter on a
+// focused card does the same, for the keyboard.
+const SAMPLE_TYPE = 'application/x-rostermapper-sample';
+async function addSample(name) {
+  $('drop-title').textContent = `Fetching ${name}…`;
+  $('drop-hint').textContent = '';
+  try {
+    const res = await fetch(`file?sample=${encodeURIComponent(name)}`);
+    if (!res.ok) throw new Error(`the host answered ${res.status}`);
+    addFiles([new File([await res.blob()], name)]);
+  } catch (e) {
+    $('drop-title').textContent = `Couldn't fetch ${name}`;
+    $('drop-hint').textContent = e.message;
+  }
+}
+$('sample-cards').ondragstart = (e) => {
+  const card = e.target.closest('[data-sample]');
+  if (!card) return;
+  e.dataTransfer.setData(SAMPLE_TYPE, card.dataset.sample);
+  e.dataTransfer.effectAllowed = 'copy';
+  card.classList.add('dragging');
+  drop.classList.add('target');
+};
+$('sample-cards').ondragend = (e) => {
+  e.target.closest('[data-sample]')?.classList.remove('dragging');
+  drop.classList.remove('target', 'over');
+};
+$('sample-cards').onkeydown = (e) => {
+  const card = e.target.closest('[data-sample]');
+  if (card && e.key === 'Enter') addSample(card.dataset.sample);
 };
 $('mapping').onchange = async (e) => {
   const f = e.target.files[0];

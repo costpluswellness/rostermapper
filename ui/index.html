@@ -58,8 +58,9 @@
       <span id="drop-hint" class="muted">or click to browse · xlsx, xls, csv</span>
     </label>
     <p class="hint center"><span id="private-note">Read in this browser. Nothing is stored, SSNs are never read. · </span><label class="textlink">Open a folder<input type="file" id="folder" webkitdirectory hidden></label></p>
-    <!-- A host's sample rosters (session.samples): each opens with ?sample=<file>, which the host's file route answers. -->
-    <p id="samples" class="samples center" hidden></p>
+    <!-- A host's sample rosters (session.samples): cards to drag onto the drop zone above. A dropped card is
+         fetched from the host's file route (file?sample=<file>) and runs like any dropped file. -->
+    <div id="samples" class="samples" hidden><p class="samples-label">Or drag a sample in</p><div id="sample-cards" class="sample-cards"></div></div>
     <div class="landing-options">
       <label class="opt" title="Auto-detect reads it from an action column, then the sheet name, then the file name">Action
         <select id="action"><option value="">Auto-detect</option><option>ADD</option><option>UPDATE</option><option>TERM</option></select></label>
