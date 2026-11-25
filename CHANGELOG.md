@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+- Demo site: one page. The docs (Usage, Processing steps, Data sources, Schema) are sections of the home page, with the sidebar linking to them; the old `/docs/*.html` pages redirect there. The schema leaves out the per-action levels. The hero has one button, Open the app
+- Demo site: under the hero, a few rows of the hand-edited sample as sent (before), then the providers, practice locations and billing entities they describe (after; hover a card to trace its chain). Built from the library's own cleaning and grouping at build time; plays when in view, with steps and pause; reduced motion shows the graph still
+- docs/data_sources.md: NPPES, the US Census geocoder and NUCC, and how each is used. The demo site links each mention of them to it
+- UI: dropped files open at Review, the first as soon as it's done, while the rest run and wait in the rail; Run again on Results stays on Results
+- Demo rosters: Excel dates are written as day numbers, so the build machine's time zone no longer shifts them a day
 - Demo site (`demo/`, `netlify.toml`): the docs with a sidebar, the UI at `/app/`, and six sample rosters in different shapes (tidy xlsx, hand-edited csv, database extract, several locations each, facilities in .xls, wide) built from a random sample of real NPIs from NPPES, with placeholder tax IDs. `pnpm demo` builds it, `pnpm demo:serve` serves it locally; see demo/README.md
-- `session.samples` (`[{ file, title?, note? }]`): a host lists sample rosters, shown under the drop as "Try a sample"; each opens with `?sample=<file>`
+- `session.samples` (`[{ file, title?, note? }]`): a host lists sample rosters, shown under the drop as cards to drag onto it (or Enter on a focused card); `?sample=<file>` opens one straight away
 - `session.home` (a URL): the UI's title links back to the host's site
 - docs/steps.md: the "Not built yet" checklist is gone
 - `answerLookup` in `src/validate/lookup.ts` answers the UI's lookup routes for any host (the CLI's server and the demo's function)

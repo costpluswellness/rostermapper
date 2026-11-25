@@ -1,6 +1,6 @@
 # Demo site
 
-The public demo: the docs with a sidebar, the UI at `/app/`, and sample rosters anyone can open in one click. Hosted on Netlify (`netlify.toml` at the repo root).
+The public demo: one page (the home sections, then `docs/*.md` inlined, with a sidebar), the UI at `/app/`, and sample rosters. The home page plays a few rows of `hand-edited.csv` from as sent to the providers, locations and billing entities they describe. Hosted on Netlify (`netlify.toml` at the repo root).
 
 ```bash
 pnpm demo          # builds the library and UI, then the site into demo/_site/
@@ -9,8 +9,9 @@ pnpm demo:serve    # serves demo/_site/ on http://localhost:8787, as Netlify wou
 
 | Path | What it is |
 | --- | --- |
-| `rosters/` | The sample rosters, `npis.json` (the NPPES sample they're built from) and `manifest.json` (what each one shows, for the site's cards) |
-| `site/style.css` | The site's look; the pages are written by `scripts/build-demo-site.ts` from `docs/*.md` |
+| `rosters/` | The sample rosters, `npis.json` (the NPPES sample they're built from) and `manifest.json` (what each one shows, for the app's sample list) |
+| `site/style.css` | The site's look; the page is written by `scripts/build-demo-site.ts` |
+| `site/story.js` | The home page's animation: before (as sent) → after (the network). Its data comes from `buildStory` in `scripts/demo-previews.ts`: the library's own cleaning and `groupEntities`, at build time |
 | `netlify/functions/lookup.mts` | `app/api/nppes`, `app/api/census` and `app/api/nppes-name`, through `answerLookup` (NPPES and the Census geocoder have no CORS) |
 | `_site/` | The built site. Not committed |
 
@@ -21,7 +22,7 @@ The UI asks its host for `session` and `file`, with the page's query string. The
 | File | Shape |
 | --- | --- |
 | `tidy-workbook.xlsx` | Title rows above the header; Adds, Terms and a Read Me tab; ZIPs stored as numbers; a few blanks NPPES fills |
-| `hand-edited.csv` | An action column spelled five ways; dates, phones and states in every format; an NPI typo, an N/A and a duplicate |
+| `hand-edited.csv` | An action column spelled five ways; dates, phones and states in every format; an NPI typo, an N/A and a duplicate; two providers also listed at their group's office, written differently |
 | `DIRECTORY_EXTRACT_TERMS_20261130.csv` | `SCREAMING_SNAKE` headers; TERM from the file name; `YYYYMMDD` dates |
 | `multi-location.xlsx` | One row per provider per location, with primary, directory and PCP flags |
 | `facilities.xls` | Organizations in an Excel 97-2003 file |

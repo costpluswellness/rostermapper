@@ -30,7 +30,7 @@ a:hover { text-decoration-color: var(--accent); }
 .side nav a { display: block; color: var(--muted); text-decoration: none; padding: 2px 0; }
 .side nav a:hover { color: var(--strong); }
 .side nav a.page { color: var(--text); margin-top: 6px; }
-.side nav a.page[aria-current] { color: var(--accent); }
+.side nav a.page.active { color: var(--accent); }
 .side nav .sub { padding-left: 12px; }
 .side nav .sub a { font-size: 13px; }
 .side nav .sub a.active { color: var(--strong); }
@@ -72,17 +72,50 @@ th { color: var(--strong); font-weight: 600; white-space: nowrap; }
 .install { display: flex; align-items: center; gap: 10px; margin: 1.2rem 0 0; }
 .install pre { margin: 0; padding: 8px 14px; flex: 0 1 auto; }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin: 1rem 0 1rem; }
-.card { display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 15px 12px; }
-.card:hover { border-color: #444; }
-.card h3 { margin: 0 0 2px; font-size: 14.5px; display: flex; align-items: baseline; gap: 8px; }
-.card .fmt { font: 600 10.5px/1 ui-monospace, Menlo, monospace; color: var(--muted); border: 1px solid var(--rule); border-radius: 4px; padding: 3px 5px; text-transform: uppercase; }
-.card .file { font: 12px ui-monospace, Menlo, monospace; color: var(--faint); margin: 0 0 8px; overflow-wrap: anywhere; }
-.card ul { margin: 0 0 12px; padding-left: 16px; color: var(--muted); font-size: 13px; line-height: 1.5; flex: 1; }
-.card .go { display: flex; gap: 14px; align-items: center; font-size: 13px; }
-.card .go a:first-child { color: var(--accent); text-decoration: none; font-weight: 600; }
-.card .go a:first-child:hover { text-decoration: underline; }
-.card .go a + a { color: var(--muted); }
+/* The story under the hero: the roster as sent (before) → the network it describes (after). data-stage on .story picks what shows. */
+.story { margin: 2.2rem 0 0; background: var(--bg-2); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 16px 16px; }
+.story-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.story-steps { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.story-steps button { font: inherit; font-size: 13px; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 999px; padding: 4px 12px 4px 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.story-steps button b { width: 20px; height: 20px; border-radius: 50%; background: var(--bg-3); color: var(--muted); font-size: 11px; display: grid; place-items: center; }
+.story-steps button:hover { color: var(--strong); }
+.story-steps button[aria-pressed="true"] { color: var(--strong); border-color: #444; background: var(--bg-3); }
+.story-steps button[aria-pressed="true"] b { background: var(--accent); color: var(--accent-ink); }
+.story-play { margin-left: auto; font: inherit; font-size: 11px; color: var(--muted); background: none; border: 1px solid var(--rule); border-radius: 50%; width: 28px; height: 28px; cursor: pointer; }
+.story-play:hover { color: var(--strong); border-color: #444; }
+.story-stage { display: grid; }
+.story-stage > * { grid-area: 1 / 1; transition: opacity .25s ease, transform .25s ease, visibility .25s; }
+.story-table { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); align-self: start; }
+.story-graph { overflow-x: auto; align-self: start; padding-bottom: 6px; }
+.story-graph svg { display: block; width: 100%; min-width: 620px; height: auto; overflow: visible; }
+.story[data-stage="1"] .story-table, .story:not([data-stage="1"]) .story-graph { opacity: 0; visibility: hidden; transform: translateY(6px); }
+
+#story-table { display: table; width: 100%; margin: 0; font-size: 12.5px; border-collapse: collapse; }
+#story-table th, #story-table td { padding: 6px 10px; border-bottom: 1px solid #2a2a2a; white-space: nowrap; transition: background-color .6s, color .6s, opacity .6s; }
+#story-table tbody tr:last-child > * { border-bottom: 0; }
+#story-table thead th { background: var(--bg-3); color: var(--strong); font-weight: 600; text-align: left; }
+#story-table .n { color: var(--faint); font: 11px ui-monospace, Menlo, monospace; text-align: right; width: 1%; }
+#story-table td.c { text-decoration: underline wavy #e9b86b; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+
+#story-graph .heads text { fill: var(--faint); font-size: 11.5px; font-weight: 600; letter-spacing: .02em; }
+#story-graph .node rect { fill: var(--bg); stroke: #3a3a3a; }
+#story-graph .node.provider rect { stroke: #4a6b8a; }
+#story-graph .node.location rect { stroke: #7a6a3e; }
+#story-graph .node.billing rect { stroke: #6b5a8a; }
+#story-graph .node { cursor: default; transition: opacity .25s; }
+#story-graph .node .t { fill: var(--strong); font-size: 12.5px; font-weight: 600; }
+#story-graph .node .s { fill: var(--muted); font-size: 11px; }
+#story-graph .node .r { fill: var(--faint); font-size: 10.5px; font-family: ui-monospace, Menlo, monospace; }
+#story-graph .link { fill: none; stroke: #5a5a5a; stroke-width: 1.4; transition: stroke .25s, opacity .25s; }
+#story-graph.focus .node:not(.hl), #story-graph.focus .link:not(.hl) { opacity: .25; }
+#story-graph .link.hl { stroke: var(--accent); stroke-width: 2; }
+#story-graph .node.hl rect { stroke: var(--accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .story[data-stage="1"] #story-graph .node { animation: story-in .35s ease-out both; animation-delay: calc(var(--d) * 150ms); }
+  .story[data-stage="1"] #story-graph .link { stroke-dasharray: 1; animation: story-draw .4s ease-out both; animation-delay: calc(var(--d) * 150ms + 220ms); }
+}
+@keyframes story-in { from { opacity: 0; } }
+@keyframes story-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 
 .steps { counter-reset: step; list-style: none; padding: 0; display: grid; gap: 8px; }
 .steps li { counter-increment: step; display: grid; grid-template-columns: 28px 1fr; gap: 4px 10px; margin: 0; }

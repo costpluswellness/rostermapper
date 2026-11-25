@@ -101,9 +101,17 @@
 /* Upload: the file and external sources on the left, the roster's settings on the right; the preview under both */
 .step { margin-top: 0; }
 .landing { max-width: 40rem; margin: 2rem auto 0; }
-.samples { font-size: 13px; color: var(--muted); margin: 1rem 0 0; line-height: 1.9; }
-.samples a { color: inherit; text-decoration-color: var(--accent); text-underline-offset: 3px; }
-.samples a:hover { color: var(--accent); }
+/* Sample rosters: cards to drag onto the drop zone */
+.samples { margin: 1.25rem 0 0; }
+.rm .samples-label { font-size: 13px; color: var(--muted); text-align: center; margin: 0 0 .5rem; }
+.sample-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: 8px; }
+.sample-card { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 0 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); cursor: grab; user-select: none; font-size: 13px; transition: border-color .15s, transform .15s; }
+.sample-card:hover, .sample-card:focus-visible { border-color: var(--accent); outline: none; transform: translateY(-1px); }
+.sample-card:active { cursor: grabbing; }
+.sample-card.dragging { opacity: .45; }
+.sample-card b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sample-card small { grid-column: 2; color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sample-ext { grid-row: span 2; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
 .landing-options { display: flex; justify-content: center; align-items: center; gap: 10px 22px; flex-wrap: wrap; margin-top: 1.25rem; font-size: 13px; color: var(--muted); }
 .landing-options .opt { display: inline-flex; align-items: center; gap: 8px; }
 .rm .landing-options select { font-size: 13px; padding: 3px 6px; }
@@ -129,6 +137,7 @@
 #drop b { font-size: 1.1em; }
 .drop-icon { color: var(--accent); }
 #drop:hover, #drop.over { border-color: var(--accent); background: var(--accent-soft); }
+#drop.target { border-color: var(--accent); }
 #drop.loaded { min-height: 0; padding: .75rem 1rem; display: flex; justify-content: flex-start; text-align: left; gap: 10px; }
 #drop.loaded .drop-icon { width: 18px; height: 18px; }
 #drop.loaded b { font-size: 1em; }

@@ -58,8 +58,9 @@
       <span id="drop-hint" class="muted">or click to browse · xlsx, xls, csv</span>
     </label>
     <p class="hint center"><span id="private-note">Read in this browser. Nothing is stored, SSNs are never read. · </span><label class="textlink">Open a folder<input type="file" id="folder" webkitdirectory hidden></label></p>
-    <!-- A host's sample rosters (session.samples): each opens with ?sample=<file>, which the host's file route answers. -->
-    <p id="samples" class="samples center" hidden></p>
+    <!-- A host's sample rosters (session.samples): cards to drag onto the drop zone above. A dropped card is
+         fetched from the host's file route (file?sample=<file>) and runs like any dropped file. -->
+    <div id="samples" class="samples" hidden><p class="samples-label">Or drag a sample in</p><div id="sample-cards" class="sample-cards"></div></div>
     <div class="landing-options">
       <label class="opt" title="Auto-detect reads it from an action column, then the sheet name, then the file name">Action
         <select id="action"><option value="">Auto-detect</option><option>ADD</option><option>UPDATE</option><option>TERM</option></select></label>
@@ -169,7 +170,7 @@
   <h2>How Roster Mapper works</h2>
   <section data-how="upload"><h3>1 · Upload</h3><ul>
     <li>Drop xlsx, xls or csv files, or a folder of them. They're read in this browser; SSNs are removed as they're read.</li>
-    <li>Every file is mapped, standardized and checked as the command line does, and Results shows what happened. Click a file to review it.</li>
+    <li>Every file is mapped, standardized and checked as the command line does. The first opens as soon as it's done; the others wait in the list on the left. <b>All results</b> shows every file at once.</li>
     <li>The header row is found automatically. To change it, open <b>Raw data</b> on a file and click another row.</li>
     <li>The action (ADD, UPDATE or TERM) comes from an action column, then the sheet name, then the file name. Set it under the drop to override that.</li>
     <li><b>Look up</b>: what leaves this browser. NPPES gets each NPI, the Census geocoder each practice and billing address.</li>

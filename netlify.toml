@@ -1,4 +1,4 @@
-# The public demo site: the docs, the UI at /app/ and the sample rosters (demo/).
+# The public demo site: one page with the docs, the UI at /app/ and the sample rosters (demo/).
 # Build locally with `pnpm demo`, preview with `pnpm demo:serve`.
 [build]
   command = "pnpm build && node scripts/build-demo-site.ts"

@@ -1,6 +1,7 @@
 // Roster Mapper's UI, served by the CLI (rostermapper --ui [roster.xlsx]). A workbench: the rail on the
-// left lists the files; the main pane shows New run (files and options), Results (what the run did to
-// every file) or one file's Review; the status bar at the bottom shows progress.
+// left lists the files; the main pane shows New run (files and options), one file's Review, or Results
+// (what the run did to every file, from the rail); the status bar at the bottom shows progress.
+// Dropped files open straight at Review: the first one, while the rest run and wait in the rail.
 //
 // Every file runs through every step, as `rostermapper <files>` does (runSheets). A file opens at Review,
 // its one page: its sheets along the top, its providers, locations and billing as a graph or table with
@@ -66,7 +67,7 @@ export function go(step) {
   // Lookups run the first time a sheet opens (answers the run already got are reused); "Run checks" repeats them.
   if (step === 'review' && !state.checked) { state.checked = true; runChecks(); }
 }
-$('rail-new').onclick = (e) => { e.preventDefault(); remember(); closeFile(); go('upload'); };
+$('rail-new').onclick = (e) => { e.preventDefault(); remember(); state.opening = null; closeFile(); go('upload'); };
 
 // ─── Mapping and Raw data: dialogs over the file's page ─────
 // The page behind recalculates with every change made in them.
@@ -121,11 +122,12 @@ async function boot() {
     $('home').append($('title-text'));
     $('home').hidden = false;
   }
-  // A host's sample rosters: links that open each one (the host answers file?sample=… with it).
+  // A host's sample rosters: cards to drag onto the drop zone (the host answers file?sample=… with each).
   if (session.samples?.length) {
     $('samples').hidden = false;
-    $('samples').innerHTML = 'Try a sample: ' + session.samples.map((s) =>
-      `<a href="?sample=${encodeURIComponent(s.file)}" title="${esc(s.note ?? s.file)}">${esc(s.title ?? s.file)}</a>`).join(' · ');
+    $('sample-cards').innerHTML = session.samples.map((s) =>
+      `<div class="sample-card" draggable="true" tabindex="0" data-sample="${esc(s.file)}" title="${esc((s.note ?? s.file).replace(/; /g, '\n'))}">` +
+      `<span class="sample-ext">${esc(s.file.split('.').pop())}</span><b>${esc(s.title ?? s.file)}</b><small>${esc(s.file)}</small></div>`).join('');
   }
   if (session.mappingName) loadMapping(session.mappingName, await (await fetch(host('mapping'))).arrayBuffer());
   if (!session.name) return go('upload');
@@ -136,9 +138,8 @@ async function boot() {
   if (!res.ok) throw new Error(`the roster (${res.status})`);
   const sheets = /json/.test(res.headers.get('content-type') ?? '') ? JSON.parse(await res.text(), revive) : readWorkbook(await res.arrayBuffer());
   state.files = [{ name: session.name, read: async () => sheets, status: 'waiting' }];
-  // One file from the command line: run it, then open it.
-  await runFiles();
-  if (state.files[0]?.status === 'done') openFile(0, session.sheet, session.headerRow);
+  // One file from the command line: run it, then open it at the sheet and header row it was given.
+  await runFiles({ open: true, sheet: session.sheet, headerRow: session.headerRow });
 }
 boot().catch((e) => { document.querySelector('.rm-main').insertAdjacentHTML('afterbegin', `<p class="rm-note">Could not start: ${esc(e.message)}. Is the CLI still running?</p>`); });
 
@@ -151,7 +152,41 @@ drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = async (e) => {
   e.preventDefault();
   drop.classList.remove('over');
-  addFiles(await droppedFiles(e.dataTransfer));
+  const sample = e.dataTransfer.getData(SAMPLE_TYPE);
+  if (sample) addSample(sample);
+  else addFiles(await droppedFiles(e.dataTransfer));
+};
+
+// Sample cards: dragged onto the drop zone, they run as if the file itself was dropped. Enter on a
+// focused card does the same, for the keyboard.
+const SAMPLE_TYPE = 'application/x-rostermapper-sample';
+async function addSample(name) {
+  $('drop-title').textContent = `Fetching ${name}…`;
+  $('drop-hint').textContent = '';
+  try {
+    const res = await fetch(`file?sample=${encodeURIComponent(name)}`);
+    if (!res.ok) throw new Error(`the host answered ${res.status}`);
+    addFiles([new File([await res.blob()], name)]);
+  } catch (e) {
+    $('drop-title').textContent = `Couldn't fetch ${name}`;
+    $('drop-hint').textContent = e.message;
+  }
+}
+$('sample-cards').ondragstart = (e) => {
+  const card = e.target.closest('[data-sample]');
+  if (!card) return;
+  e.dataTransfer.setData(SAMPLE_TYPE, card.dataset.sample);
+  e.dataTransfer.effectAllowed = 'copy';
+  card.classList.add('dragging');
+  drop.classList.add('target');
+};
+$('sample-cards').ondragend = (e) => {
+  e.target.closest('[data-sample]')?.classList.remove('dragging');
+  drop.classList.remove('target', 'over');
+};
+$('sample-cards').onkeydown = (e) => {
+  const card = e.target.closest('[data-sample]');
+  if (card && e.key === 'Enter') addSample(card.dataset.sample);
 };
 $('mapping').onchange = async (e) => {
   const f = e.target.files[0];
@@ -309,7 +344,7 @@ function addFiles(list) {
     return;
   }
   state.files = files.map((f) => ({ name: f.name, read: async () => readWorkbook(await f.arrayBuffer()), status: 'waiting' }));
-  runFiles();
+  runFiles({ open: true });
 }
 
 // No file open (Results shows them all; New run starts another).
@@ -340,15 +375,36 @@ export async function openFile(i, sheet, headerRow) {
 
 // Every step on every file, one file at a time, as the CLI's run does (runSheets: lookups 4 at a time,
 // trusted fixes applied, NPPES's verdicts as issues). A newer run stops an older one.
-export async function runFiles() {
+// From a drop (`open`), the run waits on New run and the first file to finish opens at Review (at
+// `sheet` and `headerRow` when given); the rest keep running behind it and wait in the rail. Once one
+// has opened, or the user has moved on (opened a file, Results, New run), nothing else opens.
+// Without `open` (Run again on Results) the run shows on Results.
+export async function runFiles({ open = false, sheet, headerRow } = {}) {
   const token = (state.runToken = {});
   for (const f of state.files) Object.assign(f, { status: 'waiting', results: undefined, error: undefined });
   sheetMemo.clear(); // a new run starts every sheet afresh
   closeFile();
-  go('results');
-  for (const f of state.files) {
+  if (!open) {
+    go('results');
+    return runAll(token);
+  }
+  state.opening = token;
+  go('upload');
+  return runAll(token, sheet, headerRow);
+}
+
+// Waiting for this run's first file to open: still on New run, and the user hasn't left it since.
+const waiting = (token) => state.opening === token && state.current === -1 && state.step === 'upload';
+
+async function runAll(token, sheet, headerRow) {
+  for (const [i, f] of state.files.entries()) {
     if (state.runToken !== token) return;
     f.status = 'running';
+    if (waiting(token)) {
+      const left = state.files.length - i - 1;
+      $('drop-title').textContent = `Reading ${f.name}…`;
+      $('drop-hint').textContent = left ? `then ${left} more` : '';
+    }
     render();
     try {
       const results = (await runSheets(f.name, await f.read(), {
@@ -364,6 +420,14 @@ export async function runFiles() {
     }
     if (state.runToken !== token) return;
     state.progress = '';
-    render();
+    if (f.status === 'done' && waiting(token)) {
+      state.opening = null;
+      await openFile(i, sheet, headerRow);
+    } else render();
+  }
+  // Every file failed: say so where the drop was.
+  if (waiting(token) && state.files.every((f) => f.status === 'error')) {
+    $('drop-title').textContent = state.files.length > 1 ? 'None of these files could be read' : `Can't read ${state.files[0].name}`;
+    $('drop-hint').textContent = state.files.length > 1 ? 'Click one in the list for why' : state.files[0].error;
   }
 }

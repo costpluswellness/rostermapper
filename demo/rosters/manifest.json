@@ -16,7 +16,7 @@
 		"file": "hand-edited.csv",
 		"title": "Hand-edited CSV",
 		"format": "csv",
-		"rows": 15,
+		"rows": 17,
 		"shows": [
 			"An Action column spelled five ways",
 			"Dates in five formats, phones in four",
